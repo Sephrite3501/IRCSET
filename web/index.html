@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>IRCSET – Minimal API Tester</title>
+    <style>
+      body { font-family: system-ui, Arial, sans-serif; margin: 16px; }
+      h1, h2, h3 { margin: 8px 0; }
+      fieldset { margin: 12px 0; padding: 10px; }
+      label { display: inline-block; min-width: 160px; }
+      input[type="text"], input[type="password"], textarea { width: 320px; }
+      pre { background:#f4f4f4; padding:8px; overflow:auto; max-height:240px; }
+      .row { margin: 6px 0; }
+      .col { display:inline-block; vertical-align: top; margin-right: 24px; }
+      .pill { display:inline-block; padding:2px 8px; border:1px solid #999; border-radius: 12px; margin-right:6px; font-size: 12px; }
+      button { margin: 4px 0; }
+    </style>
+  </head>
+  <body>
+    <h1>IRCSET – Minimal API Tester (Extended)</h1>
+
+    <section>
+      <h2>Config</h2>
+      <label>API Base URL: <input id="baseUrl" value="http://localhost:3005"/></label>
+      <button id="btnPing">Ping /healthz</button>
+      <pre id="outPing"></pre>
+    </section>
+
+    <hr/>
+
+    <section>
+      <h2>Auth</h2>
+      <div class="col">
+        <h3>Register (Author)</h3>
+        <div class="row"><label>Email</label><input id="regEmail" placeholder="email"/></div>
+        <div class="row"><label>Name</label><input id="regName" placeholder="name"/></div>
+        <div class="row"><label>Password</label><input id="regPw" placeholder="password" type="password"/></div>
+        <button id="btnRegister">Register</button>
+      </div>
+      <div class="col">
+        <h3>Login (Any role)</h3>
+        <div class="row"><label>Email</label><input id="logEmail" placeholder="email"/></div>
+        <div class="row"><label>Password</label><input id="logPw" placeholder="password" type="password"/></div>
+        <button id="btnLogin">Login</button>
+        <div class="row"><label>JWT Token</label></div>
+        <textarea id="token" rows="3" cols="80" placeholder="JWT will appear here"></textarea>
+        <div class="row"><button id="btnMe">GET /me</button></div>
+      </div>
+      <div style="clear:both"></div>
+      <pre id="outAuth"></pre>
+    </section>
+
+    <hr/>
+
+    <section>
+      <h2>Admin</h2>
+      <div class="col">
+        <h3>Create User (reviewer / decision_maker / chair)</h3>
+        <div class="row"><label>Email</label><input id="admEmail" placeholder="email"/></div>
+        <div class="row"><label>Name</label><input id="admName" placeholder="name"/></div>
+        <div class="row"><label>Password</label><input id="admPw" placeholder="password" type="password"/></div>
+        <div class="row"><label>Role</label><input id="admRole" placeholder="reviewer | decision_maker | chair"/></div>
+        <div class="row"><label>Categories</label><input id="admCats" placeholder="comma (e.g. A,B) for reviewer/decision_maker"/></div>
+        <button id="btnAdminCreate">POST /admin/users</button>
+      </div>
+      <div class="col">
+        <h3>List Users</h3>
+        <button id="btnAdminListUsers">GET /admin/users</button>
+        <h3>List Categories</h3>
+        <button id="btnAdminListCats">GET /admin/categories</button>
+        <h3>Set User Categories</h3>
+        <div class="row"><label>User ID</label><input id="admSetUserId" placeholder="numeric"/></div>
+        <div class="row"><label>Role Scope</label><input id="admSetRoleScope" placeholder="reviewer | decision_maker"/></div>
+        <div class="row"><label>Categories</label><input id="admSetCats" placeholder="e.g. A,B"/></div>
+        <button id="btnAdminSetCats">POST /admin/users/:id/categories</button>
+      </div>
+      <div style="clear:both"></div>
+      <pre id="outAdmin"></pre>
+    </section>
+
+    <hr/>
+
+    <section>
+      <h2>Submissions (Author)</h2>
+      <div class="col">
+        <h3>Create Draft</h3>
+        <div class="row"><label>Title</label><input id="subTitle" placeholder="title"/></div>
+        <div class="row"><label>Category</label><input id="subCategory" placeholder="A..E" maxlength="1"/></div>
+        <div class="row"><label>IRC member email (optional)</label><input id="subIrcEmail" placeholder="co-author IRC email"/></div>
+        <div class="row"><label>PDF</label><input id="subPdf" type="file" accept="application/pdf"/></div>
+        <button id="btnCreateSubmission">POST /submissions</button>
+      </div>
+      <div class="col">
+        <h3>My Submissions</h3>
+        <button id="btnMySubs">GET /submissions/mine</button>
+        <div class="row"><label>Submission ID</label><input id="getSubId" placeholder="id"/></div>
+        <button id="btnGetSub">GET /submissions/:id</button>
+      </div>
+      <div style="clear:both"></div>
+      <pre id="outSubs"></pre>
+    </section>
+
+    <hr/>
+
+    <section>
+      <h2>Chair</h2>
+      <div class="col">
+        <h3>List All Submissions</h3>
+        <button id="btnChairList">GET /chair/submissions</button>
+      </div>
+      <div class="col">
+        <h3>Assign Reviewers</h3>
+        <div class="row"><label>Submission ID</label><input id="chairAssignSubId" placeholder="id"/></div>
+        <div class="row"><label>Reviewer IDs</label><input id="chairAssignReviewerIds" placeholder="e.g. 5,7"/></div>
+        <div class="row"><label>Due At (ISO)</label><input id="chairAssignDue" placeholder="YYYY-MM-DD"/></div>
+        <button id="btnChairAssign">POST /chair/submissions/:id/assign</button>
+      </div>
+      <div style="clear:both"></div>
+      <pre id="outChair"></pre>
+    </section>
+
+    <hr/>
+
+    <section>
+      <h2>Reviewer</h2>
+      <div class="col">
+        <h3>My Assignments</h3>
+        <button id="btnRevList">GET /reviewer/assignments</button>
+      </div>
+      <div class="col">
+        <h3>Submit Review</h3>
+        <div class="row"><label>Submission ID</label><input id="revSubId" placeholder="id"/></div>
+        <div class="row"><label>Score (0..10)</label><input id="revScore" placeholder="e.g. 8.5"/></div>
+        <div class="row"><label>Comments for Author</label><textarea id="revComAuth" rows="4"></textarea></div>
+        <div class="row"><label>Confidential Comments</label><textarea id="revComConf" rows="4"></textarea></div>
+        <button id="btnRevSubmit">POST /reviewer/submissions/:id/reviews</button>
+      </div>
+      <div style="clear:both"></div>
+      <pre id="outReviewer"></pre>
+    </section>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const show = (el, data) => el.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+
+      function base() { return $("baseUrl").value.replace(/\/$/, ""); }
+      function authHeader() {
+        const tok = $("token").value.trim();
+        return tok ? { 'Authorization': 'Bearer ' + tok } : {};
+      }
+      async function api(path, opts = {}) {
+        const res = await fetch(base() + path, opts);
+        const ct = res.headers.get('content-type') || '';
+        let data;
+        try { data = ct.includes('application/json') ? await res.json() : await res.text(); }
+        catch { data = await res.text(); }
+        return { status: res.status, data };
+      }
+
+      // Ping
+      $("btnPing").onclick = async () => show($("outPing"), await api('/healthz'));
+
+      // Register
+      $("btnRegister").onclick = async () => {
+        const body = {
+          email: $("regEmail").value,
+          name: $("regName").value,
+          password: $("regPw").value
+        };
+        const r = await api('/auth/register', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+        });
+        show($("outAuth"), r);
+        if (r.status === 200 && r.data?.token) $("token").value = r.data.token;
+      };
+
+      // Login
+      $("btnLogin").onclick = async () => {
+        const r = await api('/auth/login', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: $("logEmail").value, password: $("logPw").value })
+        });
+        show($("outAuth"), r);
+        if (r.status === 200 && r.data?.token) $("token").value = r.data.token;
+      };
+
+      // Me
+      $("btnMe").onclick = async () => show($("outAuth"), await api('/me', { headers: authHeader() }));
+
+      // --- Admin ---
+      $("btnAdminCreate").onclick = async () => {
+        const role = $("admRole").value.trim();
+        const cats = $("admCats").value.trim();
+        const categories = cats ? cats.split(',').map(s=>s.trim()).filter(Boolean) : [];
+        const body = {
+          email: $("admEmail").value,
+          name: $("admName").value,
+          password: $("admPw").value,
+          role,
+          categories
+        };
+        const r = await api('/admin/users', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeader() }, body: JSON.stringify(body)
+        });
+        show($("outAdmin"), r);
+      };
+
+      $("btnAdminListUsers").onclick = async () => {
+        const r = await api('/admin/users', { headers: authHeader() });
+        show($("outAdmin"), r);
+      };
+
+      $("btnAdminListCats").onclick = async () => {
+        const r = await api('/admin/categories', { headers: authHeader() });
+        show($("outAdmin"), r);
+      };
+
+      $("btnAdminSetCats").onclick = async () => {
+        const userId = $("admSetUserId").value.trim();
+        const role_scope = $("admSetRoleScope").value.trim();
+        const cats = $("admSetCats").value.trim();
+        const categories = cats ? cats.split(',').map(s=>s.trim()).filter(Boolean) : [];
+        const r = await api(`/admin/users/${userId}/categories`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeader() },
+          body: JSON.stringify({ role_scope, categories })
+        });
+        show($("outAdmin"), r);
+      };
+
+      // --- Submissions ---
+      $("btnCreateSubmission").onclick = async () => {
+        const fd = new FormData();
+        fd.append('title', $("subTitle").value);
+        fd.append('category_id', $("subCategory").value);
+        fd.append('irc_member_email_optional', $("subIrcEmail").value);
+        const file = $("subPdf").files[0]; if (file) fd.append('pdf', file);
+        const r = await api('/submissions', { method: 'POST', headers: { ...authHeader() }, body: fd });
+        show($("outSubs"), r);
+      };
+      $("btnMySubs").onclick = async () => show($("outSubs"), await api('/submissions/mine', { headers: authHeader() }));
+      $("btnGetSub").onclick = async () => {
+        const id = $("getSubId").value.trim();
+        show($("outSubs"), await api(`/submissions/${id}`, { headers: authHeader() }));
+      };
+
+      // --- Chair ---
+      $("btnChairList").onclick = async () => show($("outChair"), await api('/chair/submissions', { headers: authHeader() }));
+      $("btnChairAssign").onclick = async () => {
+        const id = $("chairAssignSubId").value.trim();
+        const reviewers = $("chairAssignReviewerIds").value.split(',').map(s=>Number(s.trim())).filter(n=>!isNaN(n));
+        const due_at = $("chairAssignDue").value.trim();
+        const body = { reviewers };
+        if (due_at) body.due_at = due_at;
+        const r = await api(`/chair/submissions/${id}/assign`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeader() }, body: JSON.stringify(body)
+        });
+        show($("outChair"), r);
+      };
+
+      // --- Reviewer ---
+      $("btnRevList").onclick = async () => show($("outReviewer"), await api('/reviewer/assignments', { headers: authHeader() }));
+      $("btnRevSubmit").onclick = async () => {
+        const id = $("revSubId").value.trim();
+        const score_overall = Number($("revScore").value.trim());
+        const comments_for_author = $("revComAuth").value;
+        const comments_confidential = $("revComConf").value;
+        const r = await api(`/reviewer/submissions/${id}/reviews`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeader() },
+          body: JSON.stringify({ score_overall, comments_for_author, comments_confidential })
+        });
+        show($("outReviewer"), r);
+      };
+    </script>
+
+    <hr/>
+    <section>
+      <h2>Decision Maker</h2>
+      <div class="col">
+        <h3>Queue</h3>
+        <button id="btnDmQueue">GET /decisions/queue</button>
+      </div>
+      <div class="col">
+        <h3>Submission Details</h3>
+        <div class="row"><label>Submission ID</label><input id="dmSubId" placeholder="id"/></div>
+        <button id="btnDmGet">GET /decisions/:submission_id</button>
+      </div>
+      <div class="col">
+        <h3>Make Decision</h3>
+        <div class="row"><label>Submission ID</label><input id="dmDecSubId" placeholder="id"/></div>
+        <div class="row"><label>Decision</label><input id="dmDecision" placeholder="accepted | rejected"/></div>
+        <div class="row"><label>Reason</label><textarea id="dmReason" rows="3"></textarea></div>
+        <button id="btnDmPost">POST /decisions/:submission_id</button>
+      </div>
+      <div style="clear:both"></div>
+      <pre id="outDm"></pre>
+    </section>
+
+    <script>
+      // Decision Maker handlers
+      document.getElementById('btnDmQueue').onclick = async () => {
+        const r = await api('/decisions/queue', { headers: authHeader() });
+        show(document.getElementById('outDm'), r);
+      };
+      document.getElementById('btnDmGet').onclick = async () => {
+        const id = document.getElementById('dmSubId').value.trim();
+        const r = await api(`/decisions/${id}`, { headers: authHeader() });
+        show(document.getElementById('outDm'), r);
+      };
+      document.getElementById('btnDmPost').onclick = async () => {
+        const id = document.getElementById('dmDecSubId').value.trim();
+        const decision = document.getElementById('dmDecision').value.trim();
+        const reason = document.getElementById('dmReason').value;
+        const r = await api(`/decisions/${id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeader() },
+          body: JSON.stringify({ decision, reason })
+        });
+        show(document.getElementById('outDm'), r);
+      };
+    </script>
+
+    <hr/>
+    <section>
+      <h2>Final Submission</h2>
+      <div class="row"><label>Submission ID</label><input id="finalSubId" placeholder="id"/></div>
+      <div class="row"><label>PDF</label><input id="finalFile" type="file"/></div>
+      <button id="btnFinalUpload">POST /submissions/:id/final</button>
+      <pre id="outFinal"></pre>
+    </section>
+
+    <script>
+      document.getElementById('btnFinalUpload').onclick = async () => {
+        const id = document.getElementById('finalSubId').value.trim();
+        const f = document.getElementById('finalFile').files[0];
+        const fd = new FormData();
+        fd.append('pdf', f); // must be 'pdf'
+
+        const r = await api(`/submissions/${id}/final`, {
+          method: 'POST',
+          headers: authHeader(), // do NOT set Content-Type manually
+          body: fd
+        });
+        show(document.getElementById('outFinal'), r);
+      };
+    </script>
+
+
+
+  </body>
+</html>
