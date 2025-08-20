@@ -1,11 +1,10 @@
-# IRCSET API (Backend-first)
-
+# IRCSET API
 
 ## Prereqs
 - Docker & Docker Compose
 - Create external docker network once: `docker network create irc-shared-net`
 - If you will enable membership checks now: ensure the IRC DB is reachable and has a read-only view `public.member_status_v` + user.
-
+- Need to fetch the lasted repo from IRC first
 
 ## Setup
 1. Copy `server/.env.example` to `server/.env` and fill values.
