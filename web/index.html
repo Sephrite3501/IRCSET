@@ -144,11 +144,18 @@
       const show = (el, data) => el.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
 
       function base() { return $("baseUrl").value.replace(/\/$/, ""); }
-      function authHeader() {
-        const tok = $("token").value.trim();
-        return tok ? { 'Authorization': 'Bearer ' + tok } : {};
-      }
+      function authHeader() { return {}; }
       async function api(path, opts = {}) {
+        const isWrite = (opts.method || 'GET').match(/POST|PUT|PATCH|DELETE/i);
+        // Always send/receive cookies
+        opts.credentials = 'include';
+        // Ensure headers object exists
+        opts.headers = opts.headers || {};
+        // CSRF: If you have CSRF protection on, attach token for writes
+        if (isWrite && !opts.headers['X-CSRF-Token']) {
+          const token = document.cookie.split('; ').find(s => s.startsWith('csrf-token='))?.split('=')[1];
+          if (token) opts.headers['X-CSRF-Token'] = token;
+        }
         const res = await fetch(base() + path, opts);
         const ct = res.headers.get('content-type') || '';
         let data;
@@ -185,8 +192,8 @@
       };
 
       // Me
-      $("btnMe").onclick = async () => show($("outAuth"), await api('/me', { headers: authHeader() }));
-
+      $("btnMe").onclick = async () => show($("outAuth"), await api('/auth/me'));
+      
       // --- Admin ---
       $("btnAdminCreate").onclick = async () => {
         const role = $("admRole").value.trim();

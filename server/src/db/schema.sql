@@ -103,3 +103,15 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   user_agent TEXT,
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
+
+-- Session token store (cookie-based login)
+CREATE TABLE IF NOT EXISTS session_tokens (
+  id SERIAL PRIMARY KEY,
+  token TEXT NOT NULL UNIQUE,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  role VARCHAR(20),
+  ip TEXT,
+  user_agent TEXT,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
