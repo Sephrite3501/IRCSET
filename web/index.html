@@ -97,7 +97,7 @@
           <label>Name</label><input id="regName" placeholder="Your Name"/>
           <label>Password</label><input id="regPw" type="password" placeholder="StrongP@ssw0rd!"/>
           <div class="row">
-            <button class="btn-prim" id="btnRegister">POST /auth/register</button>
+            <button class="btn-prim" id="btnRegister">POST /register</button>
             <button id="btnCSRF">GET /csrf-token</button>
           </div>
         </div>
@@ -106,10 +106,10 @@
           <label>Email</label><input id="logEmail" placeholder="admin1@example.com"/>
           <label>Password</label><input id="logPw" type="password" placeholder="StrongP@ssw0rd!"/>
           <div class="row">
-            <button class="btn-prim" id="btnLogin">POST /auth/login</button>
-            <button id="btnMe">GET /auth/me</button>
-            <button id="btnRefresh">POST /auth/refresh</button>
-            <button class="btn-danger" id="btnLogout">POST /auth/logout</button>
+            <button class="btn-prim" id="btnLogin">POST /login</button>
+            <button id="btnMe">GET /me</button>
+            <button id="btnRefresh">POST /refresh</button>
+            <button class="btn-danger" id="btnLogout">POST /logout</button>
           </div>
         </div>
       </div>
@@ -340,7 +340,7 @@
 
     // Whoami badge update
     async function refreshWhoAmI() {
-      const r = await api('/auth/me');
+      const r = await api('/me');
       if (r?.data?.user) {
         const u = r.data.user;
         $("whoami").textContent = `${u.email} (${u.role})`;
@@ -368,21 +368,21 @@
     $("btnCSRF").onclick = async () => { const r = await api('/csrf-token'); show($("outAuth"), r); refreshWhoAmI(); };
     $("btnRegister").onclick = async () => {
       const body = { email: $("regEmail").value, name: $("regName").value, password: $("regPw").value };
-      const r = await api('/auth/register', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+      const r = await api('/register', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(body) });
       show($("outAuth"), r);
       refreshWhoAmI();
     };
     $("btnLogin").onclick = async () => {
-      const r = await api('/auth/login', {
+      const r = await api('/login', {
         method: 'POST', headers: { 'Content-Type':'application/json' },
         body: JSON.stringify({ email: $("logEmail").value, password: $("logPw").value })
       });
       show($("outAuth"), r);
       refreshWhoAmI();
     };
-    $("btnMe").onclick = async () => { show($("outAuth"), await api('/auth/me')); };
-    $("btnRefresh").onclick = async () => { show($("outAuth"), await api('/auth/refresh', { method:'POST' })); };
-    $("btnLogout").onclick = async () => { show($("outAuth"), await api('/auth/logout', { method:'POST' })); refreshWhoAmI(); };
+    $("btnMe").onclick = async () => { show($("outAuth"), await api('/me')); };
+    $("btnRefresh").onclick = async () => { show($("outAuth"), await api('/refresh', { method:'POST' })); };
+    $("btnLogout").onclick = async () => { show($("outAuth"), await api('/logout', { method:'POST' })); refreshWhoAmI(); };
 
     // ---------- Admin ----------
     $("btnAdminCreate").onclick = async () => {
