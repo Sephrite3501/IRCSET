@@ -1,8 +1,16 @@
+-- ========= BOOTSTRAP =========
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+BEGIN;
+
 -- =========================
 -- Core tables
 -- =========================
 
 -- Users & roles
+DROP TABLE IF EXISTS session_tokens, audit_logs, membership_validations, decisions,
+  reviews, assignments, submissions, user_categories, categories, users CASCADE;
+
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
@@ -12,6 +20,9 @@ CREATE TABLE users (
   is_active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
+
+-- Case-insensitive uniqueness (hardening)
+CREATE UNIQUE INDEX users_email_lower_unique ON users (LOWER(email));
 
 -- Categories (A–E)
 CREATE TABLE categories (
@@ -82,7 +93,12 @@ CREATE TABLE reviews (
   CONSTRAINT reviews_unique UNIQUE (submission_id, reviewer_user_id),
   -- If marked submitted, require submitted_at
   CONSTRAINT reviews_submitted_guard
-    CHECK (status <> 'submitted' OR submitted_at IS NOT NULL)
+    CHECK (status <> 'submitted' OR submitted_at IS NOT NULL),
+  -- HARDENING: if submitted -> must have score; and submitted_at present iff submitted
+  CONSTRAINT reviews_score_when_submitted
+    CHECK (status <> 'submitted' OR score_overall IS NOT NULL),
+  CONSTRAINT reviews_submitted_at_iff_submitted
+    CHECK ( (submitted_at IS NOT NULL) = (status = 'submitted') )
 );
 
 -- Decisions (one per submission)
@@ -136,28 +152,25 @@ CREATE TABLE session_tokens (
 -- =========================
 -- Helpful indexes
 -- =========================
-
--- Submissions
 CREATE INDEX idx_submissions_author        ON submissions (author_user_id);
 CREATE INDEX idx_submissions_category      ON submissions (category_id);
 CREATE INDEX idx_submissions_status        ON submissions (status);
 CREATE INDEX idx_submissions_cat_status    ON submissions (category_id, status);
 
--- Assignments / Reviews
 CREATE INDEX idx_assignments_submission    ON assignments (submission_id);
 CREATE INDEX idx_reviews_submission        ON reviews (submission_id);
 CREATE INDEX idx_reviews_sub_status        ON reviews (submission_id, status);
 
--- User scoping & decisions
 CREATE INDEX idx_user_categories_user_scope ON user_categories (user_id, role_scope);
 CREATE INDEX idx_decisions_submission       ON decisions (submission_id);
 
--- Membership + audit
 CREATE INDEX idx_mv_submission              ON membership_validations (submission_id);
 CREATE INDEX idx_audit_entity               ON audit_logs (entity_type, entity_id);
 
--- Sessions (cleanup & lookups)
 CREATE INDEX idx_session_tokens_user_exp    ON session_tokens (user_id, expires_at);
+
+-- (Optional micro-optimization) reviewers who submitted for a submission:
+CREATE INDEX idx_reviews_submitted_only ON reviews (submission_id) WHERE status='submitted';
 
 -- =========================
 -- Trigger: auto-touch submissions.updated_at
@@ -173,5 +186,22 @@ DROP TRIGGER IF EXISTS trg_submissions_updated_at ON submissions;
 CREATE TRIGGER trg_submissions_updated_at
 BEFORE UPDATE ON submissions
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- =========================
+-- Seed users (all five roles)
+-- Password = StrongP@ssw0rd!
+-- =========================
+INSERT INTO users (email, password_hash, name, role) VALUES
+  ('author1@example.com',   crypt('StrongP@ssw0rd!', gen_salt('bf', 10)), 'Author One',   'author'),
+  ('admin1@example.com',    crypt('StrongP@ssw0rd!', gen_salt('bf', 10)), 'Admin One',    'admin'),
+  ('chair1@example.com',    crypt('StrongP@ssw0rd!', gen_salt('bf', 10)), 'Chair One',    'chair'),
+  ('reviewer1@example.com', crypt('StrongP@ssw0rd!', gen_salt('bf', 10)), 'Reviewer One', 'reviewer'),
+  ('dm1@example.com',       crypt('StrongP@ssw0rd!', gen_salt('bf', 10)), 'DM One',       'decision_maker');
+
+-- Scope reviewer + decision maker to category 'A'
+INSERT INTO user_categories (user_id, category_id, role_scope)
+SELECT id, 'A', 'reviewer' FROM users WHERE email='reviewer1@example.com';
+INSERT INTO user_categories (user_id, category_id, role_scope)
+SELECT id, 'A', 'decision_maker' FROM users WHERE email='dm1@example.com';
 
 COMMIT;

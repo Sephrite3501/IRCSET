@@ -14,11 +14,7 @@ function requireChair(req, res, next) {
   return res.status(403).json({ error: 'Forbidden' });
 }
 
-/**
- * GET /chair/submissions
- * Query: ?status=&category=&q=&page=1&limit=50
- * Returns aggregates to guide assignment.
- */
+// GET /chair/submissions
 r.get('/chair/submissions', requireAuth, requireChair, async (req, res) => {
   const status = (req.query.status || '').trim();
   const category = (req.query.category || '').trim();
@@ -29,8 +25,7 @@ r.get('/chair/submissions', requireAuth, requireChair, async (req, res) => {
 
   const params = [];
   const where = ['1=1'];
-
-  if (status) { params.push(status); where.push(`s.status = $${params.length}`); }
+  if (status)   { params.push(status);   where.push(`s.status = $${params.length}`); }
   if (category) { params.push(category); where.push(`s.category_id = $${params.length}`); }
   if (q) {
     params.push(`%${q.toLowerCase()}%`);
@@ -38,33 +33,69 @@ r.get('/chair/submissions', requireAuth, requireChair, async (req, res) => {
   }
 
   const sql = `
-    WITH agg AS (
-      SELECT
-        s.id,
-        COUNT(a.id)::int AS n_assigned,
-        COUNT(*) FILTER (WHERE r.status='submitted')::int AS n_submitted,
-        AVG(r.score_overall) FILTER (WHERE r.status='submitted')::float AS avg_score
-      FROM submissions s
-      LEFT JOIN assignments a ON a.submission_id = s.id
-      LEFT JOIN reviews r ON r.submission_id = s.id
-      GROUP BY s.id
+    WITH asn AS (
+      SELECT submission_id, COUNT(*)::int AS n_assigned
+      FROM assignments
+      GROUP BY submission_id
+    ),
+    rev AS (
+      SELECT submission_id,
+             COUNT(*) FILTER (WHERE status='submitted')::int AS n_submitted,
+             AVG(score_overall) FILTER (WHERE status='submitted')::float AS avg_score
+      FROM reviews
+      GROUP BY submission_id
     )
     SELECT
       s.id, s.title, s.category_id, s.status, s.created_at,
       COALESCE(d.decision, '') AS decision,
-      COALESCE(agg.n_assigned, 0) AS n_assigned,
-      COALESCE(agg.n_submitted, 0) AS n_submitted,
-      COALESCE(agg.avg_score, 0)::float AS avg_score
+      COALESCE(asn.n_assigned, 0) AS n_assigned,
+      COALESCE(rev.n_submitted, 0) AS n_submitted,
+      COALESCE(rev.avg_score, 0)::float AS avg_score
     FROM submissions s
     LEFT JOIN decisions d ON d.submission_id = s.id
-    LEFT JOIN agg ON agg.id = s.id
+    LEFT JOIN asn ON asn.submission_id = s.id
+    LEFT JOIN rev ON rev.submission_id = s.id
     WHERE ${where.join(' AND ')}
     ORDER BY s.created_at DESC
     LIMIT ${limit} OFFSET ${offset}
   `;
-
   const rows = await appDb.query(sql, params);
   res.json({ items: rows.rows, page, limit });
+});
+
+// GET /chair/reviewers?category=A
+r.get('/chair/reviewers', requireAuth, requireChair, async (req, res) => {
+  const cat = (req.query.category || '').trim().toUpperCase();
+  if (!cat) return res.status(400).json({ error: 'category required' });
+
+  const q = await appDb.query(
+    `SELECT u.id, u.email, u.name,
+            (SELECT COUNT(*) FROM assignments a WHERE a.reviewer_user_id = u.id) AS n_assigned_total
+       FROM users u
+       JOIN user_categories uc ON uc.user_id = u.id
+      WHERE u.is_active = TRUE AND u.role='reviewer' AND uc.role_scope='reviewer' AND uc.category_id = $1
+      ORDER BY u.id ASC`,
+    [cat]
+  );
+  res.json({ items: q.rows, category: cat });
+});
+
+// GET /chair/submissions/:id/assignments
+r.get('/chair/submissions/:id/assignments', requireAuth, requireChair, async (req, res) => {
+  const sid = Number(req.params.id || 0);
+  if (!sid) return res.status(400).json({ error: 'Bad id' });
+
+  const q = await appDb.query(
+    `SELECT a.reviewer_user_id AS reviewer_id, u.email, u.name, a.assigned_at, a.due_at,
+            r.status AS review_status, r.submitted_at
+       FROM assignments a
+       JOIN users u ON u.id = a.reviewer_user_id
+  LEFT JOIN reviews r ON r.submission_id = a.submission_id AND r.reviewer_user_id = a.reviewer_user_id
+      WHERE a.submission_id = $1
+      ORDER BY a.assigned_at ASC`,
+    [sid]
+  );
+  res.json({ items: q.rows, submission_id: sid });
 });
 
 /**

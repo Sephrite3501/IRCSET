@@ -103,7 +103,7 @@ app.use(submissions);
 app.use(chair);
 app.use(reviewer);
 app.use(decisions);
-app.use(admin);
+app.use('/admin', admin);
 app.use(finalRoutes);
 app.use(fileDownloadRouter);
 
