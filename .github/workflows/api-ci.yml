@@ -1,0 +1,92 @@
+name: CI (API E2E)
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ircset
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d ircset"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      NODE_ENV: test
+      PORT: 3005
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/ircset
+      SESSION_TTL_SECONDS: 3600
+      BCRYPT_ROUNDS: 10
+      CORS_ORIGINS: http://localhost:5173
+      METRICS_KEY: secret
+      MEMBERSHIP_ENFORCE: 'false'   # bypass IRC membership in CI
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install system tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl
+
+      - name: Install server deps
+        working-directory: server
+        run: npm ci
+
+      - name: Init DB schema
+        run: psql "$DATABASE_URL" -f server/sql/schema.sql
+
+      - name: Seed users (all 5 roles)
+        run: |
+          HASH=$(node -e "console.log(require('bcrypt').hashSync('StrongP@ssw0rd!', 10))")
+          psql "$DATABASE_URL" <<SQL
+          INSERT INTO users (email,password_hash,name,role) VALUES
+            ('admin1@example.com',    '$HASH','Admin One','admin'),
+            ('chair1@example.com',    '$HASH','Chair One','chair'),
+            ('reviewer1@example.com', '$HASH','Reviewer One','reviewer'),
+            ('dm1@example.com',       '$HASH','DM One','decision_maker'),
+            ('author1@example.com',   '$HASH','Author One','author');
+          -- scope reviewer & DM to A
+          INSERT INTO user_categories (user_id,category_id,role_scope)
+            SELECT id,'A','reviewer' FROM users WHERE email='reviewer1@example.com';
+          INSERT INTO user_categories (user_id,category_id,role_scope)
+            SELECT id,'A','decision_maker' FROM users WHERE email='dm1@example.com';
+          SQL
+
+      - name: Start API
+        working-directory: server
+        run: node src/index.js &
+      
+      - name: Wait for API (/healthz)
+        run: |
+          for i in {1..90}; do
+            curl -sf http://localhost:3005/healthz && exit 0
+            sleep 1
+          done
+          echo "API failed to become ready" >&2
+          exit 1
+
+      - name: Run E2E smoke (all routes)
+        run: bash .github/scripts/e2e.sh
+
+      - name: Dump server logs on failure
+        if: failure()
+        run: |
+          echo "Recent audit logs:"
+          psql "$DATABASE_URL" -c "SELECT created_at,action,severity,trace_id FROM audit_logs ORDER BY id DESC LIMIT 50;"
