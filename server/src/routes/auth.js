@@ -7,6 +7,7 @@ import { appDb } from '../db/pool.js';
 import { standardLimiter } from '../middleware/rateLimiter.js';
 import { cleanText, isEmail, isStrongPassword } from '../utils/validators.js';
 import { logSecurityEvent } from '../utils/logSecurityEvent.js';
+import { authLoginsTotal } from '../utils/metrics.js';
 import {
   generateAuthToken,
   saveSessionToken,
@@ -87,6 +88,7 @@ r.post('/auth/login', standardLimiter, async (req, res) => {
     const password = String(req.body?.password || '');
     if (!email || !password) {
       await logSecurityEvent({ traceId, action: 'auth.login.fail', severity: 'warn', details: { reason: 'validation' }, ip, userAgent });
+      authLoginsTotal.labels('fail').inc();
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
@@ -99,12 +101,14 @@ r.post('/auth/login', standardLimiter, async (req, res) => {
 
     if (!u || !u.is_active) {
       await logSecurityEvent({ traceId, action: 'auth.login.fail', severity: 'warn', details: { reason: 'not_found_or_inactive' }, ip, userAgent });
+      authLoginsTotal.labels('fail').inc();
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const ok = await bcrypt.compare(password, u.password_hash);
     if (!ok) {
       await logSecurityEvent({ traceId, actorUserId: u?.id, action: 'auth.login.fail', severity: 'warn', details: { reason: 'bad_pw' }, ip, userAgent });
+      authLoginsTotal.labels('fail').inc();
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -137,7 +141,7 @@ r.post('/auth/login', standardLimiter, async (req, res) => {
     }
 
     await logSecurityEvent({ traceId, actorUserId: u.id, action: 'auth.login.ok', severity: 'info', ip, userAgent });
-
+    authLoginsTotal.labels('success').inc();
     return res.json({ ok: true, user: { id: u.id, email: u.email, role: u.role, is_active: u.is_active, categories } });
   } catch (e) {
     await logSecurityEvent({ traceId, action: 'auth.login.error', severity: 'error', details: { message: e.message }, ip, userAgent });

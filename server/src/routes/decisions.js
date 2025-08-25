@@ -3,6 +3,7 @@ import { Router } from 'express';
 import requireAuth from '../middleware/requireAuth.js';
 import { appDb } from '../db/pool.js';
 import { cleanText } from '../utils/validators.js';
+import { decisionsMadeTotal } from '../utils/metrics.js';
 import { logSecurityEvent } from '../utils/logSecurityEvent.js';
 
 const r = Router();
@@ -218,7 +219,7 @@ r.post('/decisions/:submission_id', requireAuth, attachDecisionScope, async (req
       entity_id: String(sid),
       details: { decision, newStatus, category: sub.category_id, reason_len: reason ? reason.length : 0 }
     });
-
+    decisionsMadeTotal.labels(decision).inc();
     return res.json({ ok: true, decision: ins.rows[0], submission_status: newStatus });
   } catch (e) {
     await appDb.query('ROLLBACK');

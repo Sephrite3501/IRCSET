@@ -4,6 +4,7 @@ import requireAuth from '../middleware/requireAuth.js';
 import { requireRole } from '../middleware/requireRole.js';
 import { appDb } from '../db/pool.js';
 import { cleanText } from '../utils/validators.js';
+import { reviewsSubmittedTotal } from '../utils/metrics.js';
 
 const r = Router();
 
@@ -76,6 +77,7 @@ r.post('/reviewer/submissions/:id/reviews', requireAuth, requireRole('reviewer')
     }
 
     await appDb.query('COMMIT');
+    reviewsSubmittedTotal.inc();
     res.json({ ok: true });
   } catch (e) {
     await appDb.query('ROLLBACK');

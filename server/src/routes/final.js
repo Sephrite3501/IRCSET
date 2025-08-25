@@ -7,6 +7,7 @@
  import { appDb } from '../db/pool.js';
  import { uploadPdf as _unused } from '../middleware/uploadPdf.js'; // keep existing upload guard available if you want same dir
  import { checkMembershipByEmail } from '../services/membershipCheck.js';
+ import { finalUploadsTotal } from '../utils/metrics.js';
  import { logSecurityEvent } from '../utils/logSecurityEvent.js';
 
  const r = Router();
@@ -137,7 +138,7 @@ const MEMBERSHIP_ENFORCE = (process.env.MEMBERSHIP_ENFORCE ?? 'true') !== 'false
          ip,
          userAgent
        });
-
+       finalUploadsTotal.inc();
        return res.json({ ok: true, submission_id: sid, status: 'final_submitted', final_pdf_path: relPath });
      } catch (e) {
        // If multer accepted but something failed after, try to clean up file
