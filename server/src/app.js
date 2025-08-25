@@ -14,7 +14,7 @@ import reviewer from './routes/reviewer.js';
 import decisions from './routes/decisions.js';
 import admin from './routes/admin.js';
 import finalRoutes from './routes/final.js';
-
+import fileDownloadRouter from './routes/fileDownload.js';
 
 
 const app = express();
@@ -105,6 +105,7 @@ app.use(reviewer);
 app.use(decisions);
 app.use(admin);
 app.use(finalRoutes);
+app.use(fileDownloadRouter);
 
 app.get('/', (req, res) => res.json({ name: 'IRCSET API' }));
 
