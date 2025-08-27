@@ -13,7 +13,6 @@ function startsWithDir(fullPath, baseDir) {
 
 async function canUserSeeFinal(reqUser, submissionId, authorUserId) {
   if (!reqUser) return false;
-  if (reqUser.role === 'admin') return true;
   if (reqUser.uid === authorUserId) return true;
   if (reqUser.role === 'chair' || reqUser.role === 'decision_maker') return true;
 

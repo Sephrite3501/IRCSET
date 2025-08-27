@@ -1,5 +1,8 @@
 import { Router } from 'express';
 import requireAuth from '../middleware/requireAuth.js';
+import { requireRole } from '../middleware/requireRole.js';
+import { writeLimiter } from '../middleware/rateLimiter.js';
+import { validateParamId, validateDecisionBody } from '../utils/validators.js';
 import {
   attachDecisionScope,
   listQueue,
@@ -9,9 +12,25 @@ import {
 
 const r = Router();
 
-// NOTE: this router is mounted at '/decisions' in app.js
-r.get('/queue', requireAuth, attachDecisionScope, listQueue);
-r.get('/:submission_id', requireAuth, attachDecisionScope, getDecisionDetail);
-r.post('/:submission_id', requireAuth, attachDecisionScope, makeDecision);
+// Mounted at /decisions in app.js
+
+// Reads
+r.get('/queue',
+  requireAuth, requireRole('decision_maker'), attachDecisionScope,
+  listQueue
+);
+
+r.get('/:submission_id',
+  requireAuth, requireRole('decision_maker'), attachDecisionScope,
+  validateParamId('submission_id'),
+  getDecisionDetail
+);
+
+// Writes (CSRF enforced globally by app.js)
+r.post('/:submission_id',
+  requireAuth, requireRole('decision_maker'), writeLimiter, attachDecisionScope,
+  validateParamId('submission_id'), validateDecisionBody,
+  makeDecision
+);
 
 export default r;

@@ -132,7 +132,7 @@ export async function makeDecision(req, res) {
   const min = Math.max(1, parseInt(req.query.min ?? process.env.DM_MIN_REVIEWS ?? '1', 10));
   const force = req.user.isAdmin && (req.query.force === '1' || req.query.force === 'true');
 
-  if (!sid || !['accepted', 'rejected'].includes(decision)) {
+  if (!sid || !['accept', 'reject'].includes(decision)) {
     return res.status(400).json({ error: 'Invalid input' });
   }
 
@@ -162,7 +162,7 @@ export async function makeDecision(req, res) {
     }
   }
 
-  const newStatus = decision === 'accepted' ? 'final_required' : 'decision_made';
+  const newStatus = decision === 'accept' ? 'final_required' : 'decision_made';
 
   try {
     await appDb.query('BEGIN');

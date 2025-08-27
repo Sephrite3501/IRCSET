@@ -97,8 +97,8 @@
           <label>Name</label><input id="regName" placeholder="Your Name"/>
           <label>Password</label><input id="regPw" type="password" placeholder="StrongP@ssw0rd!"/>
           <div class="row">
-            <button class="btn-prim" id="btnRegister">POST /register</button>
-            <button id="btnCSRF">GET /csrf-token</button>
+            <button class="btn-prim" id="btnRegister">POST /auth/register</button>
+            <button id="btnCSRF">GET /auth/csrf-token</button>
           </div>
         </div>
         <div>
@@ -106,10 +106,10 @@
           <label>Email</label><input id="logEmail" placeholder="admin1@example.com"/>
           <label>Password</label><input id="logPw" type="password" placeholder="StrongP@ssw0rd!"/>
           <div class="row">
-            <button class="btn-prim" id="btnLogin">POST /login</button>
-            <button id="btnMe">GET /me</button>
-            <button id="btnRefresh">POST /refresh</button>
-            <button class="btn-danger" id="btnLogout">POST /logout</button>
+            <button class="btn-prim" id="btnLogin">POST /auth/login</button>
+            <button id="btnMe">GET /auth/me</button>
+            <button id="btnRefresh">POST /auth/refresh</button>
+            <button class="btn-danger" id="btnLogout">POST /auth/logout</button>
           </div>
         </div>
       </div>
@@ -248,6 +248,7 @@
         <div>
           <h3>Queue</h3>
           <label>Min reviews (optional)</label><input id="dmMin" placeholder="1"/>
+          <label>Category (optional)</label><input id="dmCat" placeholder="A"/>
           <button id="btnDmQueue">GET /decisions/queue</button>
         </div>
         <div>
@@ -258,7 +259,7 @@
         <div>
           <h3>Make Decision</h3>
           <label>Submission ID</label><input id="dmDecSubId" placeholder="1"/>
-          <label>Decision</label><input id="dmDecision" placeholder="accepted | rejected"/>
+          <label>Decision</label><input id="dmDecision" placeholder="accept | reject"/>
           <label>Reason</label><textarea id="dmReason" rows="3"></textarea>
           <div class="row">
             <button class="btn-prim" id="btnDmPost">POST /decisions/:submission_id</button>
@@ -286,14 +287,14 @@
             <button id="btnFinalInline">Open inline</button>
             <button id="btnFinalDownload">Download (dl=1)</button>
           </div>
-          <p class="muted">Served via <code>/submissions/:id/final.pdf</code> with authz & range support.</p>
+          <p class="muted">Served via <code>/submissions/:id/final.pdf</code> with authz &amp; range support.</p>
         </div>
       </div>
       <iframe id="finalFrame" title="Final PDF preview"></iframe>
       <div class="out" id="outFinal"></div>
     </section>
 
-    <p class="muted">Tip: This console uses <span class="small kv">credentials: "include"</span> so your httpOnly session cookie flows automatically. Mutating calls auto-add <span class="small kv">X-CSRF-Token</span> from <span class="small kv">csrf-token</span> cookie.</p>
+    <p class="muted">Tip: This console uses <span class="small kv">credentials: "include"</span> so your httpOnly session cookie flows automatically. Mutating calls auto-add <span class="small kv">X-CSRF-Token</span> from the <span class="small kv">csrf-token</span> cookie.</p>
   </div>
 
   <script>
@@ -308,7 +309,7 @@
     }
     function updBadges(resp) {
       try {
-        const lim = resp.headers?.get?.('X-RateLimit-Remaining');
+        const lim = resp.headers?.get?.('x-ratelimit-remaining') ?? resp.headers?.get?.('X-RateLimit-Remaining');
         if (lim !== null && lim !== undefined) $("rate").textContent = `rate: ${lim}`;
       } catch {}
     }
@@ -318,7 +319,7 @@
       opts.headers = opts.headers || {};
       if (isWrite && !opts.headers['X-CSRF-Token']) {
         const t = getCookie('csrf-token');
-        if (t) opts.headers['X-CSRF-Token'] = t;
+        if (t) opts.headers['X-CSRF-Token'] = decodeURIComponent(t);
       }
       const res = await fetch(base() + path, opts);
       updBadges(res);
@@ -340,7 +341,7 @@
 
     // Whoami badge update
     async function refreshWhoAmI() {
-      const r = await api('/me');
+      const r = await api('/auth/me');
       if (r?.data?.user) {
         const u = r.data.user;
         $("whoami").textContent = `${u.email} (${u.role})`;
@@ -365,24 +366,24 @@
     $("btnShowCookies").onclick = () => show($("outPing"), document.cookie || '(no cookies)');
 
     // ---------- Auth ----------
-    $("btnCSRF").onclick = async () => { const r = await api('/csrf-token'); show($("outAuth"), r); refreshWhoAmI(); };
+    $("btnCSRF").onclick = async () => { const r = await api('/auth/csrf-token'); show($("outAuth"), r); refreshWhoAmI(); };
     $("btnRegister").onclick = async () => {
       const body = { email: $("regEmail").value, name: $("regName").value, password: $("regPw").value };
-      const r = await api('/register', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+      const r = await api('/auth/register', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(body) });
       show($("outAuth"), r);
       refreshWhoAmI();
     };
     $("btnLogin").onclick = async () => {
-      const r = await api('/login', {
+      const r = await api('/auth/login', {
         method: 'POST', headers: { 'Content-Type':'application/json' },
         body: JSON.stringify({ email: $("logEmail").value, password: $("logPw").value })
       });
       show($("outAuth"), r);
       refreshWhoAmI();
     };
-    $("btnMe").onclick = async () => { show($("outAuth"), await api('/me')); };
-    $("btnRefresh").onclick = async () => { show($("outAuth"), await api('/refresh', { method:'POST' })); };
-    $("btnLogout").onclick = async () => { show($("outAuth"), await api('/logout', { method:'POST' })); refreshWhoAmI(); };
+    $("btnMe").onclick = async () => { show($("outAuth"), await api('/auth/me')); };
+    $("btnRefresh").onclick = async () => { show($("outAuth"), await api('/auth/refresh', { method:'POST' })); };
+    $("btnLogout").onclick = async () => { show($("outAuth"), await api('/auth/logout', { method:'POST' })); refreshWhoAmI(); };
 
     // ---------- Admin ----------
     $("btnAdminCreate").onclick = async () => {
@@ -494,7 +495,9 @@
     // ---------- Decisions ----------
     $("btnDmQueue").onclick = async () => {
       const min = $("dmMin").value.trim();
-      const r = await api(`/decisions/queue${min ? '?min='+encodeURIComponent(min) : ''}`);
+      const category = $("dmCat").value.trim();
+      const q = qs({ min, category });
+      const r = await api(`/decisions/queue${q ? '?'+q : ''}`);
       show($("outDm"), r);
     };
     $("btnDmGet").onclick = async () => {

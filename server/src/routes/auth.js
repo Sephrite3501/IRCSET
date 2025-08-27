@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { standardLimiter } from '../middleware/rateLimiter.js';
+import { authLimiter } from '../middleware/rateLimiter.js';
 import {
   csrfToken,
   register,
@@ -11,12 +11,12 @@ import {
 
 const r = Router();
 
-// NOTE: we mount this router at '/auth' in app.js
-r.get('/csrf-token', csrfToken);           // GET /auth/csrf-token
-r.post('/register', standardLimiter, register);
-r.post('/login',    standardLimiter, login);
+// Mounted at /auth in app.js
+r.get('/csrf-token', csrfToken);     // GET /auth/csrf-token
+r.post('/register', authLimiter, register);
+r.post('/login',    authLimiter, login);
 r.get('/me', me);
-r.post('/refresh', refresh);               // CSRF enforced globally by app.js
-r.post('/logout',  logout);                // CSRF enforced globally by app.js
+r.post('/refresh', refresh);         // CSRF handled globally in app.js
+r.post('/logout',  logout);          // CSRF handled globally in app.js
 
 export default r;

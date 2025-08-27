@@ -17,3 +17,11 @@ export const authLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many attempts, please try later' }
 });
+
+export const writeLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 100,                      // tune per your traffic
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many requests, please try again later.'
+});

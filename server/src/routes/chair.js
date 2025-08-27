@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import requireAuth from '../middleware/requireAuth.js';
+import { writeLimiter } from '../middleware/rateLimiter.js';
+import { validateParamId, validateAssignBody } from '../utils/validators.js';
 import {
   listSubmissions,
   listReviewers,
@@ -10,7 +12,7 @@ import {
 
 const r = Router();
 
-/** allow chair OR admin */
+// allow chair OR admin
 function requireChair(req, res, next) {
   const role = req.user?.role;
   if (!role) return res.status(401).json({ error: 'Unauthorized' });
@@ -18,11 +20,25 @@ function requireChair(req, res, next) {
   return res.status(403).json({ error: 'Forbidden' });
 }
 
-// NOTE: we mount this router at '/chair' in app.js
+// Mounted at /chair in app.js
+
+// Reads
 r.get('/submissions', requireAuth, requireChair, listSubmissions);
-r.get('/reviewers', requireAuth, requireChair, listReviewers);
-r.get('/submissions/:id/assignments', requireAuth, requireChair, listAssignments);
-r.post('/submissions/:id/assign', requireAuth, requireChair, assignReviewers);
-r.post('/submissions/:id/unassign', requireAuth, requireChair, unassignReviewers);
+r.get('/reviewers',   requireAuth, requireChair, listReviewers);
+r.get('/submissions/:id/assignments',
+  requireAuth, requireChair, validateParamId('id'),
+  listAssignments
+);
+
+// Writes (CSRF enforced globally by app.js)
+r.post('/submissions/:id/assign',
+  requireAuth, requireChair, writeLimiter, validateParamId('id'), validateAssignBody,
+  assignReviewers
+);
+
+r.post('/submissions/:id/unassign',
+  requireAuth, requireChair, writeLimiter, validateParamId('id'), validateAssignBody,
+  unassignReviewers
+);
 
 export default r;

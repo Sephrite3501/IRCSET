@@ -1,22 +1,31 @@
-// server/src/routes/submissionsRoutes.js
+// Mounted at /submissions in app.js
 import { Router } from 'express';
 import requireAuth from '../middleware/requireAuth.js';
-import { uploadPdf } from '../middleware/uploadPdf.js';
+import { uploadPdf, ensurePdfMagic  } from '../middleware/uploadPdf.js';
+import { validateParamId } from '../utils/validators.js';
 import {
   createSubmission,
   listMySubmissions,
   getMySubmission,
 } from '../controllers/submissionsController.js';
+import { writeLimiter } from '../middleware/rateLimiter.js';
 
 const r = Router();
 
-// POST /submissions (multipart/form-data)
-r.post('/submissions', requireAuth, uploadPdf.single('pdf'), createSubmission);
+// POST /submissions  (multipart/form-data, field: pdf)
+r.post('/',
+  requireAuth, writeLimiter,
+  uploadPdf.single('pdf'), ensurePdfMagic,
+  createSubmission
+);
 
 // GET /submissions/mine
-r.get('/submissions/mine', requireAuth, listMySubmissions);
+r.get('/mine', requireAuth, listMySubmissions);
 
 // GET /submissions/:id
-r.get('/submissions/:id', requireAuth, getMySubmission);
+r.get('/:id',
+  requireAuth, validateParamId('id'),
+  getMySubmission
+);
 
 export default r;

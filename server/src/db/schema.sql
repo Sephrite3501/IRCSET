@@ -107,7 +107,7 @@ CREATE TABLE decisions (
   submission_id INTEGER UNIQUE REFERENCES submissions(id) ON DELETE CASCADE,
   decider_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   category_id TEXT REFERENCES categories(id) ON DELETE SET NULL,
-  decision TEXT NOT NULL CHECK (decision IN ('accepted','rejected')),
+  decision TEXT NOT NULL CHECK (decision IN ('accept','reject')),
   reason TEXT,
   decided_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -192,7 +192,7 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 -- Password = StrongP@ssw0rd!
 -- =========================
 INSERT INTO users (email, password_hash, name, role) VALUES
-  ('author1@example.com',   crypt('StrongP@ssw0rd!', gen_salt('bf', 10)), 'Author One',   'author'),
+  ('author@email.com',   crypt('StrongP@ssw0rd!', gen_salt('bf', 10)), 'Author One',   'author'),
   ('admin1@example.com',    crypt('StrongP@ssw0rd!', gen_salt('bf', 10)), 'Admin One',    'admin'),
   ('chair1@example.com',    crypt('StrongP@ssw0rd!', gen_salt('bf', 10)), 'Chair One',    'chair'),
   ('reviewer1@example.com', crypt('StrongP@ssw0rd!', gen_salt('bf', 10)), 'Reviewer One', 'reviewer'),

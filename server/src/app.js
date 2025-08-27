@@ -65,7 +65,7 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
-app.use(['/auth','/submissions','/reviews','/decisions','/chair','/admin'], (req, res, next) => {
+app.use(['/auth','/submissions','/reviewer','/decisions','/chair','/admin'], (req, res, next) => {
   res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma','no-cache');
   res.setHeader('Expires','0');
@@ -79,7 +79,7 @@ app.use(issueCsrf);
 app.use(originGuard());
 
 app.use(
-  ['/auth/logout','/auth/refresh','/submissions','/reviews','/decisions','/chair','/admin','/final','/submissions/:id/final'],
+  ['/auth/logout','/auth/refresh','/submissions','/reviewer','/decisions','/chair','/admin','/final','/submissions/:id/final'],
   requireCsrf
 );
 
@@ -90,15 +90,15 @@ app.use(standardLimiter);
 app.use('/auth', authLimiter);
 
 // Routes
-app.use(health);
-app.use(auth);
-app.use(submissions);
-app.use(chair);
-app.use(reviewer);
-app.use(decisions);
-app.use('/admin', admin);
-app.use(finalRoutes);
-app.use(fileDownloadRouter);
+app.use(health);                             
+app.use('/auth', auth);                      
+app.use('/submissions', submissions);      
+app.use('/chair', chair);                      
+app.use('/reviewer', reviewer);                
+app.use('/decisions', decisions);              
+app.use('/admin', admin);                     
+app.use('/submissions', finalRoutes);          
+app.use(fileDownloadRouter);                   
 
 app.get('/', (req, res) => res.json({ name: 'IRCSET API' }));
 
