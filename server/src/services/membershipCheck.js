@@ -35,7 +35,7 @@ export async function checkMembershipByEmail(email) {
     );
 
     if (!rows.length) {
-      return { ok: false, reason: 'invalid', meta: { found: false } };
+      return { ok: false, reason: 'invalid no data found', meta: { found: false } };
     }
 
     const r = rows[0];

@@ -1,6 +1,6 @@
+// server/src/routes/admin.js
 import { Router } from 'express';
 import requireAuth from '../middleware/requireAuth.js';
-import { requireRole } from '../middleware/requireRole.js';
 import { standardLimiter } from '../middleware/rateLimiter.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import * as Admin from '../controllers/adminController.js';
@@ -10,19 +10,39 @@ const r = Router();
 
 // Mounted at /admin in app.js
 
-// Reads
-r.get('/categories', requireAuth, requireRole('admin'), asyncHandler(Admin.listCategories));
-r.get('/users',      requireAuth, requireRole('admin'), asyncHandler(Admin.listUsers));
+// Middleware: must be admin
+function requireAdmin(req, res, next) {
+  if (!req.user?.is_admin) {
+    return res.status(403).json({ error: 'Admin only' });
+  }
+  next();
+}
 
-// Writes
-r.post('/users',
-  requireAuth, requireRole('admin'), standardLimiter,
-  asyncHandler(Admin.createUser)
+r.get(
+  '/users',
+  requireAuth, requireAdmin,
+  asyncHandler(Admin.listAllUsers)
 );
 
-r.post('/users/:id/categories',
-  requireAuth, requireRole('admin'), validateParamId('id'),
-  asyncHandler(Admin.setUserCategories)
+// Event management
+r.post('/events',
+  requireAuth, requireAdmin, standardLimiter,
+  asyncHandler(Admin.createEvent)
+);
+
+r.post('/events/:eventId/assign',
+  requireAuth, requireAdmin, validateParamId('eventId'),
+  asyncHandler(Admin.assignEventRole)
+);
+
+r.get('/events',
+  requireAuth, requireAdmin,
+  asyncHandler(Admin.listEvents)
+);
+
+r.get('/events/:eventId/users',
+  requireAuth, requireAdmin, validateParamId('eventId'),
+  asyncHandler(Admin.listEventUsers)
 );
 
 export default r;

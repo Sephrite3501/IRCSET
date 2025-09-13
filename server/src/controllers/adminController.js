@@ -1,161 +1,202 @@
+// server/src/controllers/adminController.js
 import { appDb } from '../db/pool.js';
-import bcrypt from 'bcrypt';
 import { ApiError } from '../lib/ApiError.js';
-import { cleanText, isEmail, isStrongPassword } from '../utils/validators.js';
+import { cleanText } from '../utils/validators.js';
 import { logSecurityEvent } from '../utils/logSecurityEvent.js';
 
-const ROLES = new Set(['author','reviewer','chair','decision_maker','admin']);
-const SCOPABLE = new Set(['reviewer','decision_maker']);
-
-function normCats(arr) {
-  if (!Array.isArray(arr)) return [];
-  return [...new Set(arr.map(s => String(s || '').trim().toUpperCase()).filter(Boolean))];
-}
-
-export async function listCategories(_req, res) {
-  const q = await appDb.query(`SELECT id, label FROM categories ORDER BY id`);
-  res.json({ items: q.rows });
-}
-
-export async function listUsers(req, res) {
-  const role = cleanText(req.query.role, { max: 32 });
-  const qstr = cleanText(req.query.q, { max: 80 });
-  const page = Math.max(1, Number(req.query.page || 1));
-  const limit = Math.min(100, Math.max(1, Number(req.query.limit || 50)));
-  const offset = (page - 1) * limit;
-
-  const params = [];
-  const where = [];
-
-  if (role && ROLES.has(role)) {
-    params.push(role);
-    where.push(`u.role = $${params.length}`);
-  }
-  if (qstr) {
-    params.push(`%${qstr.toLowerCase()}%`);
-    const i = params.length;
-    where.push(`(LOWER(u.email) LIKE $${i} OR LOWER(u.name) LIKE $${i})`);
-  }
-  params.push(limit, offset);
-
-  const sql = `
-    SELECT
-      u.id, u.email, u.name, u.role, u.is_active, u.created_at,
-      COALESCE(rc.cats, '{}') AS reviewer_categories,
-      COALESCE(dm.cats, '{}') AS decision_categories
-    FROM users u
-    LEFT JOIN (
-      SELECT user_id, array_agg(category_id ORDER BY category_id) AS cats
-      FROM user_categories WHERE role_scope='reviewer' GROUP BY user_id
-    ) rc ON rc.user_id = u.id
-    LEFT JOIN (
-      SELECT user_id, array_agg(category_id ORDER BY category_id) AS cats
-      FROM user_categories WHERE role_scope='decision_maker' GROUP BY user_id
-    ) dm ON dm.user_id = u.id
-    ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-    ORDER BY u.created_at DESC
-    LIMIT $${params.length-1} OFFSET $${params.length}
-  `;
-  const out = await appDb.query(sql, params);
-  res.json({ items: out.rows, page, limit });
-}
-
-export async function createUser(req, res) {
-  const traceId = `ADM-CRT-${Math.random().toString(36).slice(2, 9).toUpperCase()}`;
+// Admin: create a new event
+export async function createEvent(req, res) {
+  const traceId = `ADM-EVT-${Math.random().toString(36).slice(2, 9).toUpperCase()}`;
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   const userAgent = req.headers['user-agent'];
 
-  const email = isEmail(req.body?.email);
-  const name = cleanText(req.body?.name, { max: 80 });
-  const role = cleanText(req.body?.role, { max: 32 }).toLowerCase();
-  const password = String(req.body?.password || '');
-  const cats = SCOPABLE.has(role) ? normCats(req.body?.categories) : [];
+  const name = cleanText(req.body?.name, { max: 120 });
+  const description = cleanText(req.body?.description, { max: 500 });
+  const startDate = req.body?.start_date || null;
+  const endDate = req.body?.end_date || null;
 
-  if (!email || !name || !isStrongPassword(password) || !ROLES.has(role)) {
+  if (!name) throw new ApiError(400, 'Event name required');
+
+  const ins = await appDb.query(
+    `INSERT INTO events (name, description, start_date, end_date, created_by)
+     VALUES ($1,$2,$3,$4,$5)
+     RETURNING id, name, description, start_date, end_date, created_at`,
+    [name, description, startDate, endDate, req.user.uid]
+  );
+  const event = ins.rows[0];
+
+  await logSecurityEvent({
+    traceId, actorUserId: req.user.uid, action: 'admin.create_event', severity: 'info',
+    details: { event_id: event.id, name },
+    ip, userAgent
+  });
+
+  res.json({ ok: true, event });
+}
+
+// Admin: assign role in an event
+export async function assignEventRole(req, res) {
+  const traceId = `ADM-ASS-${Math.random().toString(36).slice(2, 9).toUpperCase()}`;
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const userAgent = req.headers['user-agent'];
+
+  const eventId = Number(req.params.eventId || 0);
+  const userId = Number(req.body?.user_id || 0);
+  const role = cleanText(req.body?.role, { max: 32 }).toLowerCase();
+
+  if (!eventId || !userId || !['author','reviewer','chair'].includes(role)) {
     throw new ApiError(400, 'Invalid input');
   }
-  if (SCOPABLE.has(role) && cats.length === 0) {
-    throw new ApiError(400, 'Categories required for reviewer/decision_maker');
-  }
 
-  const exist = await appDb.query('SELECT 1 FROM users WHERE LOWER(email)=$1', [email]);
-  if (exist.rowCount) throw new ApiError(400, 'User exists');
-
-  const rounds = Number(process.env.BCRYPT_ROUNDS || 10);
-  const hash = await bcrypt.hash(password, rounds);
-
-  await appDb.query('BEGIN');
   try {
     const ins = await appDb.query(
-      `INSERT INTO users (email, password_hash, name, role)
-       VALUES ($1,$2,$3,$4)
-       RETURNING id, email, name, role, is_active, created_at`,
-      [email, hash, name, role]
+      `INSERT INTO event_roles (event_id, user_id, role)
+       VALUES ($1,$2,$3)
+       ON CONFLICT (event_id, user_id, role) DO NOTHING
+       RETURNING id, event_id, user_id, role`,
+      [eventId, userId, role]
     );
-    const user = ins.rows[0];
 
-    if (cats.length) {
-      const chk = await appDb.query(`SELECT id FROM categories WHERE id = ANY($1::text[])`, [cats]);
-      const valid = new Set(chk.rows.map(r => r.id));
-      for (const c of cats) {
-        if (!valid.has(c)) continue;
-        await appDb.query(
-          `INSERT INTO user_categories (user_id, category_id, role_scope)
-           VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`,
-          [user.id, c, role] // reviewer or decision_maker
-        );
-      }
+    if (!ins.rowCount) {
+      throw new ApiError(400, 'User already has this role in the event');
     }
 
-    await appDb.query('COMMIT');
-
     await logSecurityEvent({
-      traceId, actorUserId: req.user.uid, action: 'admin.user_create', severity: 'info',
-      details: { user_id: user.id, role, cats, email },
+      traceId, actorUserId: req.user.uid, action: 'admin.assign_event_role', severity: 'info',
+      details: { event_id: eventId, user_id: userId, role },
       ip, userAgent
     });
 
-    res.json({ ok: true, user });
+    res.json({ ok: true, role: ins.rows[0] });
   } catch (e) {
-    await appDb.query('ROLLBACK');
     throw e;
   }
 }
 
-export async function setUserCategories(req, res) {
-  const userId = Number(req.params.id || 0);
-  const roleScope = cleanText(req.body?.role_scope, { max: 32 }).toLowerCase();
-  const cats = normCats(req.body?.categories);
+// Admin: list all events
+export async function listEvents(_req, res) {
+  const q = await appDb.query(
+    `SELECT id, name, description, start_date, end_date, created_at
+     FROM events ORDER BY created_at DESC`
+  );
+  res.json({ items: q.rows });
+}
 
-  if (!userId || !SCOPABLE.has(roleScope) || cats.length === 0) {
-    throw new ApiError(400, 'Invalid input');
+// Admin: list users in an event
+export async function listEventUsers(req, res) {
+  const eventId = Number(req.params.eventId || 0);
+  if (!eventId) throw new ApiError(400, 'Event ID required');
+
+  const q = await appDb.query(
+    `SELECT er.id, er.role, u.id AS user_id, u.email, u.name
+     FROM event_roles er
+     JOIN users u ON u.id = er.user_id
+     WHERE er.event_id=$1
+     ORDER BY er.role, u.name`,
+    [eventId]
+  );
+  res.json({ items: q.rows });
+}
+
+export async function listAllUsers(req, res) {
+  // parse filters
+  const q = cleanText(req.query?.q, { max: 200 });
+  const role = cleanText(req.query?.role, { max: 32 })?.toLowerCase();
+  const eventId = Number(req.query?.event_id || 0) || null;
+
+  const isAdmin =
+    req.query?.is_admin === 'true' ? true :
+    req.query?.is_admin === 'false' ? false : null;
+
+  const isActive =
+    req.query?.is_active === 'true' ? true :
+    req.query?.is_active === 'false' ? false : null;
+
+  const page = Math.max(1, parseInt(req.query?.page || '1', 10) || 1);
+  const limit = Math.min(200, Math.max(1, parseInt(req.query?.limit || '50', 10) || 50));
+  const offset = (page - 1) * limit;
+
+  // build WHERE for users
+  const where = [];
+  const params = [];
+
+  if (q) {
+    params.push(`%${q}%`);
+    where.push(`(u.email ILIKE $${params.length} OR u.name ILIKE $${params.length})`);
   }
-
-  const uq = await appDb.query(`SELECT id, role FROM users WHERE id=$1`, [userId]);
-  const u = uq.rows[0];
-  if (!u) throw new ApiError(404, 'User not found');
-  if (u.role !== roleScope) throw new ApiError(400, 'User role mismatch');
-
-  await appDb.query('BEGIN');
-  try {
-    await appDb.query(`DELETE FROM user_categories WHERE user_id=$1 AND role_scope=$2`, [userId, roleScope]);
-
-    const chk = await appDb.query(`SELECT id FROM categories WHERE id = ANY($1::text[])`, [cats]);
-    const valid = new Set(chk.rows.map(r => r.id));
-
-    for (const c of cats) {
-      if (!valid.has(c)) continue;
-      await appDb.query(
-        `INSERT INTO user_categories (user_id, category_id, role_scope)
-         VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`,
-        [userId, c, roleScope]
-      );
+  if (isAdmin !== null) {
+    params.push(isAdmin);
+    where.push(`u.is_admin = $${params.length}`);
+  }
+  if (isActive !== null) {
+    params.push(isActive);
+    where.push(`u.is_active = $${params.length}`);
+  }
+  // role filter -> user must have that role (optionally within event)
+  if (role) {
+    params.push(role);
+    const roleIdx = params.length;
+    if (eventId) {
+      params.push(eventId);
+      const evIdx = params.length;
+      where.push(`EXISTS (SELECT 1 FROM event_roles er WHERE er.user_id = u.id AND er.role = $${roleIdx} AND er.event_id = $${evIdx})`);
+    } else {
+      where.push(`EXISTS (SELECT 1 FROM event_roles er WHERE er.user_id = u.id AND er.role = $${roleIdx})`);
     }
-
-    await appDb.query('COMMIT');
-    res.json({ ok: true, user_id: userId, role_scope: roleScope, categories: cats });
-  } catch (e) {
-    await appDb.query('ROLLBACK');
-    throw e;
   }
+
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+  // total count (optional but nice)
+  const cnt = await appDb.query(`SELECT COUNT(*)::int AS n FROM users u ${whereSql}`, params);
+  const total = cnt.rows[0]?.n ?? 0;
+
+  // page of users
+  params.push(limit, offset);
+  const limIdx = params.length - 1; // offset is last, limit is previous
+  const usersRes = await appDb.query(
+    `SELECT u.id, u.email, u.name, u.is_admin, u.is_active, u.created_at
+       FROM users u
+       ${whereSql}
+       ORDER BY u.created_at DESC
+       LIMIT $${limIdx} OFFSET $${limIdx + 1}`,
+    params
+  );
+
+  const users = usersRes.rows;
+  const ids = users.map(u => u.id);
+
+  // roles for these users (aggregated), optionally scoped to event_id
+  let rolesMap = new Map();
+  if (ids.length) {
+    const params2 = [ids];
+    let sql = `SELECT user_id, event_id, role FROM event_roles WHERE user_id = ANY($1)`;
+    if (eventId) {
+      params2.push(eventId);
+      sql += ` AND event_id = $2`;
+    }
+    const r2 = await appDb.query(sql, params2);
+    for (const row of r2.rows) {
+      if (!rolesMap.has(row.user_id)) rolesMap.set(row.user_id, []);
+      rolesMap.get(row.user_id).push({ event_id: row.event_id, role: row.role });
+    }
+  }
+
+  const items = users.map(u => ({
+    ...u,
+    roles: rolesMap.get(u.id) || []
+  }));
+
+  await logSecurityEvent({
+    traceId: `ADM-LU-${Math.random().toString(36).slice(2, 9).toUpperCase()}`,
+    actorUserId: req.user.uid,
+    action: 'admin.list_users',
+    severity: 'info',
+    details: {
+      total_returned: items.length,
+      page, limit, filters: { q: !!q, role: role || null, eventId, isAdmin, isActive }
+    }
+  });
+
+  res.json({ items, page, limit, total });
 }

@@ -1,7 +1,10 @@
+// server/src/routes/chair.js
 import { Router } from 'express';
 import requireAuth from '../middleware/requireAuth.js';
+import { requireEventRole } from '../middleware/requireEventRole.js';
 import { writeLimiter } from '../middleware/rateLimiter.js';
-import { validateParamId, validateAssignBody } from '../utils/validators.js';
+import { validateParamId } from '../utils/validators.js';
+
 import {
   listSubmissions,
   listReviewers,
@@ -10,35 +13,63 @@ import {
   unassignReviewers,
 } from '../controllers/chairController.js';
 
+import {
+  listQueue,
+  getDecisionDetail,
+  makeDecision,
+} from '../controllers/decisionsController.js';
+
 const r = Router();
 
-// allow chair OR admin
-function requireChair(req, res, next) {
-  const role = req.user?.role;
-  if (!role) return res.status(401).json({ error: 'Unauthorized' });
-  if (role === 'chair' || role === 'admin') return next();
-  return res.status(403).json({ error: 'Forbidden' });
-}
+// --------------------
+// Chair: Submissions
+// --------------------
+r.get('/:eventId/submissions',
+  requireAuth, requireEventRole('chair'),
+  listSubmissions
+);
 
-// Mounted at /chair in app.js
+r.get('/:eventId/reviewers',
+  requireAuth, requireEventRole('chair'),
+  listReviewers
+);
 
-// Reads
-r.get('/submissions', requireAuth, requireChair, listSubmissions);
-r.get('/reviewers',   requireAuth, requireChair, listReviewers);
-r.get('/submissions/:id/assignments',
-  requireAuth, requireChair, validateParamId('id'),
+r.get('/:eventId/submissions/:id/assignments',
+  requireAuth, requireEventRole('chair'),
+  validateParamId('id'),
   listAssignments
 );
 
-// Writes (CSRF enforced globally by app.js)
-r.post('/submissions/:id/assign',
-  requireAuth, requireChair, writeLimiter, validateParamId('id'), validateAssignBody,
+r.post('/:eventId/submissions/:id/assign',
+  requireAuth, requireEventRole('chair'),
+  writeLimiter, validateParamId('id'),
   assignReviewers
 );
 
-r.post('/submissions/:id/unassign',
-  requireAuth, requireChair, writeLimiter, validateParamId('id'), validateAssignBody,
+r.post('/:eventId/submissions/:id/unassign',
+  requireAuth, requireEventRole('chair'),
+  writeLimiter, validateParamId('id'),
   unassignReviewers
+);
+
+// --------------------
+// Chair: Decisions
+// --------------------
+r.get('/:eventId/decisions/queue',
+  requireAuth, requireEventRole('chair'),
+  listQueue
+);
+
+r.get('/:eventId/decisions/:submission_id',
+  requireAuth, requireEventRole('chair'),
+  validateParamId('submission_id'),
+  getDecisionDetail
+);
+
+r.post('/:eventId/decisions/:submission_id',
+  requireAuth, requireEventRole('chair'),
+  writeLimiter, validateParamId('submission_id'),
+  makeDecision
 );
 
 export default r;

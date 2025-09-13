@@ -11,68 +11,66 @@ export async function createSubmission(req, res) {
   const userAgent = req.headers['user-agent'];
 
   const uid = req.user?.uid;
+  const eventId = Number(req.params.eventId || 0);
   if (!uid) return res.status(401).json({ error: 'Unauthorized' });
+  if (!eventId) return res.status(400).json({ error: 'Event ID required' });
 
   try {
     const title = cleanText(req.body?.title, { max: 200 });
-    const categoryId = cleanText(req.body?.category_id, { max: 1 }).toUpperCase();
     const maybeIrcEmail = req.body?.irc_member_email_optional
       ? isEmail(req.body.irc_member_email_optional)
       : null;
 
-    if (!title || !categoryId || !req.file) {
-      // clean up saved file if present
+    if (!title || !req.file) {
       try { if (req.file?.path) fs.unlinkSync(req.file.path); } catch {}
       await logSecurityEvent({
-        traceId, actorUserId: uid, action: 'submission.create.fail',
+        traceId,
+        actorUserId: uid,
+        action: 'submission.create.fail',
         severity: 'warn',
-        details: { reason: 'validation', hasFile: !!req.file, title, categoryId },
-        ip, userAgent
+        details: { reason: 'validation', hasFile: !!req.file, title },
+        ip,
+        userAgent
       });
       return res.status(400).json({ error: 'Missing fields or file' });
     }
 
-    // Ensure category exists
-    const cat = await appDb.query('SELECT 1 FROM categories WHERE id=$1', [categoryId]);
-    if (!cat.rowCount) {
-      try { if (req.file?.path) fs.unlinkSync(req.file.path); } catch {}
-      return res.status(400).json({ error: 'Invalid category' });
-    }
+    // Move file under event folder
+    const eventDir = path.resolve(process.cwd(), 'uploads', 'events', String(eventId));
+    fs.mkdirSync(eventDir, { recursive: true });
 
-    // Store a relative path for portability
-    const relPath = path.relative(process.cwd(), req.file.path);
+    const targetPath = path.join(eventDir, path.basename(req.file.path));
+    fs.renameSync(req.file.path, targetPath);
+    const relPath = path.relative(process.cwd(), targetPath);
 
+    // Insert into DB
     const ins = await appDb.query(
       `INSERT INTO submissions
-         (author_user_id, category_id, title, abstract, keywords, pdf_path, status, irc_member_email_optional)
+         (event_id, author_user_id, title, abstract, keywords, pdf_path, status, irc_member_email_optional)
        VALUES ($1,$2,$3,$4,$5,$6,'submitted',$7)
-       RETURNING id, category_id, title, status, created_at`,
-      [
-        uid,
-        categoryId,
-        title,
-        null,          // abstract (MVP)
-        null,          // keywords (MVP)
-        relPath,       // uploads/<uuid>.pdf (relative)
-        maybeIrcEmail
-      ]
+       RETURNING id, event_id, title, status, created_at`,
+      [eventId, uid, title, null, null, relPath, maybeIrcEmail]
     );
 
     const row = ins.rows[0];
     await logSecurityEvent({
-      traceId, actorUserId: uid, action: 'submission.create.ok',
+      traceId,
+      actorUserId: uid,
+      action: 'submission.create.ok',
       severity: 'info',
-      details: { submission_id: row.id, categoryId, file: path.basename(relPath) },
-      ip, userAgent
+      details: { submission_id: row.id, eventId, file: path.basename(relPath) },
+      ip,
+      userAgent
     });
 
     return res.json({ ok: true, submission: row });
   } catch (e) {
-    // If Multer accepted but DB fails, try cleanup
     try { if (req.file?.path) fs.unlinkSync(req.file.path); } catch {}
     await logSecurityEvent({
-      traceId, action: 'submission.create.error', severity: 'error',
-      details: { message: e.message },
+      traceId,
+      action: 'submission.create.error',
+      severity: 'error',
+      details: { message: e.message }
     });
     return res.status(500).json({ error: 'Server error' });
   }
@@ -80,14 +78,16 @@ export async function createSubmission(req, res) {
 
 export async function listMySubmissions(req, res) {
   const uid = req.user?.uid;
+  const eventId = Number(req.params.eventId || 0);
   if (!uid) return res.status(401).json({ error: 'Unauthorized' });
+  if (!eventId) return res.status(400).json({ error: 'Event ID required' });
 
   const rows = await appDb.query(
-    `SELECT id, category_id, title, status, created_at, final_submitted_at
+    `SELECT id, event_id, title, status, created_at, final_submitted_at
        FROM submissions
-      WHERE author_user_id=$1
+      WHERE author_user_id=$1 AND event_id=$2
       ORDER BY created_at DESC`,
-    [uid]
+    [uid, eventId]
   );
   return res.json({ items: rows.rows });
 }
@@ -95,15 +95,17 @@ export async function listMySubmissions(req, res) {
 export async function getMySubmission(req, res) {
   const uid = req.user?.uid;
   const id = Number(req.params.id || 0);
+  const eventId = Number(req.params.eventId || 0);
   if (!uid) return res.status(401).json({ error: 'Unauthorized' });
-  if (!id) return res.status(400).json({ error: 'Bad id' });
+  if (!id || !eventId) return res.status(400).json({ error: 'Bad id or event' });
 
   const q = await appDb.query(
-    `SELECT id, category_id, title, status, created_at, final_submitted_at
+    `SELECT id, event_id, title, status, created_at, final_submitted_at
        FROM submissions
-      WHERE id=$1 AND author_user_id=$2`,
-    [id, uid]
+      WHERE id=$1 AND author_user_id=$2 AND event_id=$3`,
+    [id, uid, eventId]
   );
+
   const row = q.rows[0];
   if (!row) return res.status(404).json({ error: 'Not found' });
 

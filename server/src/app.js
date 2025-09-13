@@ -13,10 +13,10 @@ import auth from './routes/auth.js';
 import submissions from './routes/submissions.js';
 import chair from './routes/chair.js';
 import reviewer from './routes/reviewer.js';
-import decisions from './routes/decisions.js';
 import admin from './routes/admin.js';
 import finalRoutes from './routes/final.js';
 import fileDownloadRouter from './routes/fileDownload.js';
+import eventsRouter from './routes/event.js';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -45,7 +45,10 @@ if (process.env.NODE_ENV === 'production') {
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
-const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:5173').split(',').map(s => s.trim());
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:5173')
+  .split(',')
+  .map(s => s.trim());
+
 const corsOptions = {
   origin(origin, cb) {
     if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
@@ -65,12 +68,15 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
-app.use(['/auth','/submissions','/reviewer','/decisions','/chair','/admin'], (req, res, next) => {
-  res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.setHeader('Pragma','no-cache');
-  res.setHeader('Expires','0');
-  next();
-});
+app.use(
+  ['/auth','/submissions','/reviewer','/chair','/admin'],
+  (req, res, next) => {
+    res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma','no-cache');
+    res.setHeader('Expires','0');
+    next();
+  }
+);
 
 app.disable('x-powered-by');
 
@@ -79,7 +85,7 @@ app.use(issueCsrf);
 app.use(originGuard());
 
 app.use(
-  ['/auth/logout','/auth/refresh','/submissions','/reviewer','/decisions','/chair','/admin','/final','/submissions/:id/final'],
+  ['/auth/logout','/auth/refresh','/submissions','/reviewer','/chair','/admin','/final','/submissions/:id/final'],
   requireCsrf
 );
 
@@ -90,15 +96,15 @@ app.use(standardLimiter);
 app.use('/auth', authLimiter);
 
 // Routes
-app.use(health);                             
-app.use('/auth', auth);                      
-app.use('/submissions', submissions);      
-app.use('/chair', chair);                      
-app.use('/reviewer', reviewer);                
-app.use('/decisions', decisions);              
-app.use('/admin', admin);                     
-app.use('/submissions', finalRoutes);          
-app.use(fileDownloadRouter);                   
+app.use(health);
+app.use('/auth', auth);
+app.use('/submissions', submissions);
+app.use('/chair', chair);
+app.use('/reviewer', reviewer);
+app.use('/admin', admin);
+app.use('/submissions', finalRoutes);
+app.use(fileDownloadRouter);
+app.use('/events', eventsRouter);
 
 app.get('/', (req, res) => res.json({ name: 'IRCSET API' }));
 

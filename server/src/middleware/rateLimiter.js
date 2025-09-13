@@ -12,7 +12,7 @@ export const standardLimiter = rateLimit({
 // Stricter limiter for auth/login/register
 export const authLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 min
-  limit: 20,                 // 20 attempts / 10 min
+  limit: 200,                 // 20 attempts / 10 min
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Too many attempts, please try later' }

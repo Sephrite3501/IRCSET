@@ -11,24 +11,51 @@ function startsWithDir(fullPath, baseDir) {
   return rel && !rel.startsWith('..') && !path.isAbsolute(rel);
 }
 
-async function canUserSeeFinal(reqUser, submissionId, authorUserId) {
+/**
+ * Permission check:
+ * - Author can view their own final PDF.
+ * - Chair can view any in the same event.
+ * - Reviewer can view only if assigned to that submission.
+ */
+async function canUserSeeFinal(reqUser, submissionId) {
   if (!reqUser) return false;
-  if (reqUser.uid === authorUserId) return true;
-  if (reqUser.role === 'chair' || reqUser.role === 'decision_maker') return true;
 
-  if (reqUser.role === 'reviewer') {
+  // Fetch submission with its event + author
+  const s = await appDb.query(
+    `SELECT event_id, author_user_id FROM submissions WHERE id=$1`,
+    [submissionId]
+  );
+  if (!s.rowCount) return false;
+  const { event_id, author_user_id } = s.rows[0];
+
+  // Author of submission
+  if (reqUser.uid === author_user_id) return true;
+
+  // Get roles for this event
+  const er = await appDb.query(
+    `SELECT role FROM event_roles WHERE event_id=$1 AND user_id=$2`,
+    [event_id, reqUser.uid]
+  );
+  const roles = er.rows.map(r => r.role);
+
+  // Chair can always see
+  if (roles.includes('chair')) return true;
+
+  // Reviewer can see only if assigned
+  if (roles.includes('reviewer')) {
     const a = await appDb.query(
       `SELECT 1 FROM assignments WHERE submission_id=$1 AND reviewer_user_id=$2`,
       [submissionId, reqUser.uid]
     );
     return a.rowCount > 0;
   }
+
   return false;
 }
 
 /** GET /submissions/:id/final.pdf (append ?dl=1 to force download) */
 export async function getFinalPdf(req, res) {
-  const traceId = `FINAL-DL-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
+  const traceId = `FINAL-DL-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
   const sid = Number(req.params.id || 0);
   const forceDownload = req.query.dl === '1' || req.query.download === '1';
 
@@ -36,7 +63,8 @@ export async function getFinalPdf(req, res) {
     if (!sid) return res.status(400).json({ error: 'Bad submission id' });
 
     const q = await appDb.query(
-      `SELECT id, author_user_id, status, final_pdf_path FROM submissions WHERE id=$1`,
+      `SELECT id, author_user_id, status, final_pdf_path 
+         FROM submissions WHERE id=$1`,
       [sid]
     );
     if (!q.rowCount) return res.status(404).json({ error: 'Not found' });
@@ -46,7 +74,7 @@ export async function getFinalPdf(req, res) {
       return res.status(409).json({ error: 'Final not available' });
     }
 
-    const allowed = await canUserSeeFinal(req.user, sid, sub.author_user_id);
+    const allowed = await canUserSeeFinal(req.user, sid);
     if (!allowed) return res.status(403).json({ error: 'Forbidden' });
 
     const stored = path.normalize(sub.final_pdf_path); // e.g. uploads/final/xxx.pdf
@@ -90,7 +118,7 @@ export async function getFinalPdf(req, res) {
       fs.createReadStream(full).pipe(res);
     }
 
-    // fire-and-forget audit
+    // Fire-and-forget audit log
     logSecurityEvent({
       traceId,
       actorUserId: req.user.uid,
@@ -98,7 +126,11 @@ export async function getFinalPdf(req, res) {
       severity: 'info',
       entity_type: 'submission',
       entity_id: String(sid),
-      details: { filename, size: stat.size, disposition: forceDownload ? 'attachment' : 'inline' }
+      details: {
+        filename,
+        size: stat.size,
+        disposition: forceDownload ? 'attachment' : 'inline'
+      }
     }).catch(() => {});
   } catch (_e) {
     return res.status(500).json({ error: 'Server error' });

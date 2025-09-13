@@ -1,22 +1,22 @@
-// Mounted at /reviewer in app.js
+// server/src/routes/reviewer.js
 import { Router } from 'express';
 import requireAuth from '../middleware/requireAuth.js';
-import { requireRole } from '../middleware/requireRole.js';
+import { requireEventRole } from '../middleware/requireEventRole.js';
 import { listAssignments, submitReview } from '../controllers/reviewerController.js';
 import { writeLimiter } from '../middleware/rateLimiter.js';
 import { validateParamId, validateReviewBody } from '../utils/validators.js';
 
 const r = Router();
 
-// Reads
-r.get('/assignments',
-  requireAuth, requireRole('reviewer'),
+// List reviewer assignments for an event
+r.get('/events/:eventId/reviewer/assignments',
+  requireAuth, requireEventRole('reviewer'),
   listAssignments
 );
 
-// Writes (CSRF enforced globally by app.js)
-r.post('/submissions/:id/reviews',
-  requireAuth, requireRole('reviewer'), writeLimiter,
+// Submit a review for a submission in an event
+r.post('/events/:eventId/submissions/:id/reviews',
+  requireAuth, requireEventRole('reviewer'), writeLimiter,
   validateParamId('id'), validateReviewBody,
   submitReview
 );

@@ -6,19 +6,23 @@ import { logSecurityEvent } from '../utils/logSecurityEvent.js';
 
 export async function listAssignments(req, res) {
   const uid = req.user?.uid;
+  const eventId = Number(req.params.eventId || 0);
+  if (!eventId) return res.status(400).json({ error: 'Bad event id' });
+
   const q = await appDb.query(
     `
-    SELECT s.id, s.title, s.category_id, s.status,
+    SELECT s.id, s.title, s.status, s.event_id,
            a.assigned_at, a.due_at,
            r.status AS review_status, r.submitted_at
     FROM assignments a
-    JOIN submissions s ON s.id=a.submission_id
+    JOIN submissions s ON s.id = a.submission_id
     LEFT JOIN reviews r
-      ON r.submission_id=a.submission_id AND r.reviewer_user_id=a.reviewer_user_id
+      ON r.submission_id = a.submission_id AND r.reviewer_user_id = a.reviewer_user_id
     WHERE a.reviewer_user_id=$1
+      AND s.event_id=$2
     ORDER BY a.assigned_at DESC
     `,
-    [uid]
+    [uid, eventId]
   );
   res.json({ items: q.rows });
 }
@@ -27,7 +31,9 @@ export async function submitReview(req, res) {
   const traceId = `REV-SUB-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
   const uid = req.user?.uid;
   const sid = Number(req.params.id || 0);
-  if (!sid) return res.status(400).json({ error: 'Bad id' });
+  const eventId = Number(req.params.eventId || 0);
+
+  if (!sid || !eventId) return res.status(400).json({ error: 'Bad id' });
 
   const score = Number(req.body?.score_overall);
   if (!Number.isFinite(score) || score < 0 || score > 10) {
@@ -37,49 +43,35 @@ export async function submitReview(req, res) {
   const comments_for_author   = cleanText(req.body?.comments_for_author, { max: 5000 }) || null;
   const comments_confidential = cleanText(req.body?.comments_confidential, { max: 5000 }) || null;
 
-  // Must be assigned
+  // Ensure submission belongs to event + user is assigned
   const a = await appDb.query(
-    `SELECT 1 FROM assignments WHERE submission_id=$1 AND reviewer_user_id=$2`,
-    [sid, uid]
+    `SELECT 1
+       FROM assignments a
+       JOIN submissions s ON s.id = a.submission_id
+      WHERE a.submission_id=$1 AND a.reviewer_user_id=$2 AND s.event_id=$3`,
+    [sid, uid, eventId]
   );
   if (!a.rowCount) return res.status(403).json({ error: 'Not assigned' });
 
   try {
     await appDb.query('BEGIN');
 
-    // UPDATE first
-    const upd = await appDb.query(
-      `UPDATE reviews
-         SET score_overall=$3,
-             comments_for_author=$4,
-             comments_confidential=$5,
+    await appDb.query(
+      `INSERT INTO reviews
+         (submission_id, reviewer_user_id, score_overall, comments_for_author, comments_confidential, status, submitted_at)
+       VALUES ($1,$2,$3,$4,$5,'submitted', NOW())
+       ON CONFLICT (submission_id, reviewer_user_id) DO UPDATE
+         SET score_overall=EXCLUDED.score_overall,
+             comments_for_author=EXCLUDED.comments_for_author,
+             comments_confidential=EXCLUDED.comments_confidential,
              status='submitted',
-             submitted_at=NOW()
-       WHERE submission_id=$1 AND reviewer_user_id=$2
-       RETURNING id`,
+             submitted_at=NOW()`,
       [sid, uid, score, comments_for_author, comments_confidential]
     );
-
-    // If no row existed, INSERT with UPSERT
-    if (!upd.rowCount) {
-      await appDb.query(
-        `INSERT INTO reviews
-           (submission_id, reviewer_user_id, score_overall, comments_for_author, comments_confidential, status, submitted_at)
-         VALUES ($1,$2,$3,$4,$5,'submitted', NOW())
-         ON CONFLICT (submission_id, reviewer_user_id) DO UPDATE
-           SET score_overall=EXCLUDED.score_overall,
-               comments_for_author=EXCLUDED.comments_for_author,
-               comments_confidential=EXCLUDED.comments_confidential,
-               status='submitted',
-               submitted_at=NOW()`,
-        [sid, uid, score, comments_for_author, comments_confidential]
-      );
-    }
 
     await appDb.query('COMMIT');
     reviewsSubmittedTotal.inc();
 
-    // audit (non-blocking)
     logSecurityEvent({
       traceId,
       actorUserId: uid,

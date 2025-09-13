@@ -3,7 +3,6 @@ import bcrypt from 'bcrypt';
 import ms from 'ms';
 import crypto from 'crypto';
 import { appDb } from '../db/pool.js';
-import { standardLimiter } from '../middleware/rateLimiter.js'; // used by routes
 import { cleanText, isEmail, isStrongPassword } from '../utils/validators.js';
 import { logSecurityEvent } from '../utils/logSecurityEvent.js';
 import { authLoginsTotal } from '../utils/metrics.js';
@@ -55,9 +54,9 @@ export async function register(req, res) {
 
     const hash = await bcrypt.hash(password, Number(process.env.BCRYPT_ROUNDS || 10));
     const ins = await appDb.query(
-      `INSERT INTO users (email, password_hash, name, role, is_active)
-       VALUES ($1,$2,$3,'author', true)
-       RETURNING id, email, name, role, is_active`,
+      `INSERT INTO users (email, password_hash, name, is_admin, is_active)
+       VALUES ($1,$2,$3,false,true)
+       RETURNING id, email, name, is_admin, is_active`,
       [email, hash, name]
     );
 
@@ -84,8 +83,8 @@ export async function login(req, res) {
     }
 
     const q = await appDb.query(
-      `SELECT id, email, password_hash, name, role, is_active
-         FROM users WHERE LOWER(email)=LOWER($1)`,
+      `SELECT id, email, password_hash, name, is_admin, is_active
+       FROM users WHERE LOWER(email)=LOWER($1)`,
       [email]
     );
     const u = q.rows[0];
@@ -103,17 +102,10 @@ export async function login(req, res) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    let categories = [];
-    if (['reviewer', 'decision_maker'].includes(u.role)) {
-      const cq = await appDb.query(`SELECT category_id FROM user_categories WHERE user_id=$1`, [u.id]);
-      categories = cq.rows.map(r => r.category_id);
-    }
-
     const token = generateAuthToken();
     await saveSessionToken({
       token,
       userId: u.id,
-      role: u.role,
       ip,
       userAgent,
       expiresIn: sessionTtlSec,
@@ -129,7 +121,11 @@ export async function login(req, res) {
 
     await logSecurityEvent({ traceId, actorUserId: u.id, action: 'auth.login.ok', severity: 'info', ip, userAgent });
     authLoginsTotal.labels('success').inc();
-    return res.json({ ok: true, user: { id: u.id, email: u.email, role: u.role, is_active: u.is_active, categories } });
+
+    return res.json({
+      ok: true,
+      user: { id: u.id, email: u.email, name: u.name, is_admin: u.is_admin, is_active: u.is_active }
+    });
   } catch (e) {
     await logSecurityEvent({ traceId, action: 'auth.login.error', severity: 'error', details: { message: e.message }, ip, userAgent });
     return res.status(500).json({ error: 'Server error' });
@@ -143,13 +139,9 @@ export async function me(req, res) {
   const u = await findUserByToken(token);
   if (!u) return res.json({ user: null });
 
-  let categories = [];
-  if (['reviewer', 'decision_maker'].includes(u.role)) {
-    const cq = await appDb.query(`SELECT category_id FROM user_categories WHERE user_id=$1`, [u.id]);
-    categories = cq.rows.map(r => r.category_id);
-  }
-
-  return res.json({ user: { id: u.id, email: u.email, name: u.name, role: u.role, is_active: u.is_active, categories } });
+  return res.json({
+    user: { id: u.id, email: u.email, name: u.name, is_admin: u.is_admin, is_active: u.is_active }
+  });
 }
 
 export async function refresh(req, res) {
@@ -161,7 +153,6 @@ export async function refresh(req, res) {
     res.clearCookie('session_token', cookieBase);
     return res.status(401).json({ error: 'Session expired' });
   }
-  // Sliding window: bump cookie Max-Age too
   res.cookie('session_token', token, { ...cookieBase, maxAge: ms(`${sessionTtlSec}s`) });
   return res.json({ ok: true });
 }
@@ -172,7 +163,6 @@ export async function logout(req, res) {
     if (token) await revokeToken(token);
   } finally {
     res.clearCookie('session_token', cookieBase);
-    // optional: clear CSRF as well (clean slate)
     res.clearCookie('csrf-token', { sameSite: 'lax', secure, path: '/' });
   }
   return res.json({ ok: true });

@@ -1,549 +1,560 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>IRCSET – Full API Test Console</title>
-  <style>
-    :root { --bg:#0f172a; --card:#111827; --muted:#94a3b8; --accent:#22c55e; --err:#ef4444; --ok:#10b981; }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background:#0b1220; color:#e5e7eb;
-    }
-    header {
-      position: sticky; top:0; z-index: 2;
-      background: linear-gradient(180deg, rgba(11,18,32,.98), rgba(11,18,32,.75));
-      backdrop-filter: blur(6px);
-      border-bottom: 1px solid #1f2937;
-      padding: 10px 16px; display:flex; gap:12px; align-items:center; flex-wrap: wrap;
-    }
-    header h1 { font-size: 18px; margin:0 12px 0 0; color:#fff; }
-    .pill { padding:4px 10px; border:1px solid #334155; border-radius:999px; font-size:12px; color:#cbd5e1; }
-    .pill.ok { border-color: var(--ok); color: var(--ok); }
-    .wrap { max-width: 1200px; margin: 16px auto; padding: 0 16px 80px; }
-    section { margin: 18px 0; background:#0b1220; }
-    .card {
-      background: linear-gradient(180deg, rgba(17,24,39,.9), rgba(17,24,39,.7));
-      border: 1px solid #1f2937; border-radius: 12px; padding: 14px; margin: 14px 0;
-    }
-    h2 { margin: 8px 0 12px; font-size: 18px; color:#fff; }
-    h3 { margin: 8px 0 8px; font-size: 15px; color:#e5e7eb; }
-    label { display:block; font-size:12px; color:#94a3b8; margin:8px 0 4px; }
-    input[type="text"], input[type="password"], textarea, select {
-      width: 100%; padding: 8px 10px; border-radius: 8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;
-    }
-    input[type="file"] { color:#cbd5e1; }
-    .grid { display:grid; gap:14px; }
-    .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    button {
-      background:#1f2937; color:#e5e7eb; border:1px solid #334155; border-radius: 8px;
-      padding:8px 12px; cursor:pointer;
-    }
-    button:hover { border-color:#475569; }
-    .btn-prim { background:#16a34a; border-color:#16a34a; color:#051b0f; }
-    .btn-warn { background:#eab308; border-color:#eab308; color:#0f172a; }
-    .btn-danger { background:#ef4444; border-color:#ef4444; color:#fff; }
-    .out { background:#0a0f1a; border:1px solid #1f2937; border-radius: 8px; padding: 10px; max-height: 260px; overflow:auto; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; color:#cbd5e1; }
-    .cols { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:14px; }
-    .cols3 { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:14px; }
-    .muted { color:#94a3b8; font-size: 12px; }
-    .link { color:#93c5fd; text-decoration: underline; cursor: pointer; }
-    iframe { width: 100%; height: 360px; border:1px solid #1f2937; border-radius: 8px; background:#0b1220; }
-    small.kv { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color:#9ca3af; }
-  </style>
+<meta charset="utf-8" />
+<title>IRCSET – Comprehensive API Test Console</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root{--bg:#0b1220;--card:#111827;--muted:#94a3b8;--ok:#10b981;--err:#ef4444;--line:#1f2937}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:#e5e7eb;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  header{position:sticky;top:0;z-index:5;background:linear-gradient(180deg,rgba(11,18,32,.98),rgba(11,18,32,.8));backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  header h1{margin:0 8px 0 0;font-size:18px}
+  .pill{border:1px solid #334155;border-radius:999px;padding:4px 10px;font-size:12px;color:#cbd5e1}
+  .pill.ok{border-color:var(--ok);color:var(--ok)}
+  .wrap{max-width:1250px;margin:16px auto;padding:0 16px 80px}
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .card{background:linear-gradient(180deg,rgba(17,24,39,.95),rgba(17,24,39,.8));border:1px solid var(--line);border-radius:12px;padding:14px;margin:14px 0}
+  h2{margin:6px 0 12px;font-size:18px}
+  h3{margin:8px 0 8px;font-size:15px}
+  label{display:block;font-size:12px;color:var(--muted);margin:8px 0 4px}
+  input,select,textarea{width:100%;padding:8px 10px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#e5e7eb}
+  input[type=file]{color:#cbd5e1}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  button{background:#1f2937;color:#e5e7eb;border:1px solid #334155;border-radius:8px;padding:8px 12px;cursor:pointer}
+  button:hover{border-color:#475569}
+  .btn-prim{background:#16a34a;border-color:#16a34a;color:#051b0f}
+  .btn-warn{background:#eab308;border-color:#eab308;color:#0f172a}
+  .btn-danger{background:#ef4444;border-color:#ef4444;color:#fff}
+  .out{background:#0a0f1a;border:1px solid var(--line);border-radius:8px;padding:10px;max-height:280px;overflow:auto;font-family:ui-monospace,Consolas,monospace;font-size:12px;color:#cbd5e1}
+  small.kv{font-family:ui-monospace,Consolas,monospace;color:#a3a3a3}
+  .hl{color:#a5b4fc}
+  iframe{width:100%;height:360px;border:1px solid var(--line);border-radius:8px;background:#0b1220}
+  .hint{color:#9ca3af;font-size:12px}
+</style>
 </head>
 <body>
-  <header>
-    <h1>IRCSET – API Test Console</h1>
-    <span class="pill" id="whoami">guest</span>
-    <span class="pill" id="csrfstate">csrf:?</span>
-    <span class="pill" id="rate">rate: —</span>
-  </header>
+<header>
+  <h1>IRCSET – API Test Console</h1>
+  <span class="pill" id="whoami">guest</span>
+  <span class="pill" id="csrfstate">csrf: —</span>
+  <span class="pill" id="ratelimit">rate: —</span>
+  <span class="pill" id="lastIds">event: — · sub: —</span>
+</header>
 
-  <div class="wrap">
+<div class="wrap">
 
-    <!-- Config -->
-    <section class="card">
-      <h2>Config</h2>
-      <div class="grid g3">
-        <div>
-          <label>API Base URL</label>
-          <input id="baseUrl" value="http://localhost:3005"/>
-        </div>
-        <div>
-          <label>Metrics Bearer (if set)</label>
-          <input id="metricsTok" placeholder="secret"/>
-        </div>
-        <div class="row" style="align-self:end;">
-          <button id="btnSaveCfg">Save</button>
-          <button id="btnPing">GET /healthz</button>
-          <button id="btnReady">GET /readyz</button>
-          <button id="btnMetrics">GET /metrics</button>
-          <button id="btnShowCookies">Show Cookies</button>
+  <!-- Config & Health -->
+  <section class="card">
+    <h2>Config & Health</h2>
+    <div class="grid g3">
+      <div>
+        <label>API Base URL</label>
+        <input id="baseUrl" value="http://localhost:3005" />
+      </div>
+      <div>
+        <label>Metrics Bearer (optional)</label>
+        <input id="metricsTok" placeholder="secret" />
+      </div>
+      <div style="align-self:end" class="row">
+        <button id="btnSaveCfg">Save</button>
+        <button id="btnShowCookies">Cookies</button>
+        <button id="btnMakeSample">Make Sample PDF</button>
+      </div>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button id="btnHealth">GET /healthz</button>
+      <button id="btnReady">GET /readyz</button>
+      <button id="btnMetrics">GET /metrics</button>
+      <button id="btnCSRF">GET /auth/csrf-token</button>
+    </div>
+    <div class="out" id="outConfig"></div>
+  </section>
+
+  <!-- Auth -->
+  <section class="card">
+    <h2>Auth</h2>
+    <div class="grid g3">
+      <div>
+        <h3>Register</h3>
+        <label>Email</label><input id="regEmail" placeholder="user@example.com" />
+        <label>Name</label><input id="regName" placeholder="User Name" />
+        <label>Password</label><input id="regPw" type="password" placeholder="StrongP@ssw0rd!" />
+        <button class="btn-prim" id="btnRegister">POST /auth/register</button>
+      </div>
+      <div>
+        <h3>Login</h3>
+        <label>Email</label><input id="logEmail" placeholder="admin1@example.com" />
+        <label>Password</label><input id="logPw" type="password" placeholder="StrongP@ssw0rd!" />
+        <div class="row" style="margin-top:6px">
+          <button class="btn-prim" id="btnLogin">POST /auth/login</button>
+          <button id="btnMe">GET /auth/me</button>
+          <button id="btnRefresh">POST /auth/refresh</button>
+          <button class="btn-danger" id="btnLogout">POST /auth/logout</button>
         </div>
       </div>
-      <div class="out" id="outPing"></div>
-    </section>
-
-    <!-- Auth -->
-    <section class="card">
-      <h2>Auth</h2>
-      <div class="cols">
-        <div>
-          <h3>Register (author)</h3>
-          <label>Email</label><input id="regEmail" placeholder="email@example.com"/>
-          <label>Name</label><input id="regName" placeholder="Your Name"/>
-          <label>Password</label><input id="regPw" type="password" placeholder="StrongP@ssw0rd!"/>
-          <div class="row">
-            <button class="btn-prim" id="btnRegister">POST /auth/register</button>
-            <button id="btnCSRF">GET /auth/csrf-token</button>
-          </div>
+      <div>
+        <h3>Quick Login</h3>
+        <div class="row">
+          <button id="btnLoginAdmin">Admin</button>
+          <button id="btnLoginAuthor">Author</button>
+          <button id="btnLoginChair">Chair</button>
+          <button id="btnLoginReviewer">Reviewer</button>
         </div>
-        <div>
-          <h3>Login / Session</h3>
-          <label>Email</label><input id="logEmail" placeholder="admin1@example.com"/>
-          <label>Password</label><input id="logPw" type="password" placeholder="StrongP@ssw0rd!"/>
-          <div class="row">
-            <button class="btn-prim" id="btnLogin">POST /auth/login</button>
-            <button id="btnMe">GET /auth/me</button>
-            <button id="btnRefresh">POST /auth/refresh</button>
-            <button class="btn-danger" id="btnLogout">POST /auth/logout</button>
-          </div>
+        <p class="hint">Uses built-in CREDS below.</p>
+      </div>
+    </div>
+    <div class="out" id="outAuth"></div>
+  </section>
+
+  <!-- Admin -->
+  <section class="card">
+    <h2>Admin</h2>
+    <div class="grid g3">
+      <div>
+        <h3>Create Event</h3>
+        <label>Name</label><input id="admEvtName" placeholder="My Event" />
+        <label>Description</label><input id="admEvtDesc" placeholder="Description" />
+        <button class="btn-prim" id="btnAdminCreateEvent">POST /admin/events</button>
+      </div>
+      <div>
+        <h3>Assign Role to User</h3>
+        <label>Event ID</label><input id="admEvtId" placeholder="1" />
+        <label>User (by name)</label>
+        <select id="admUserSel"></select>
+        <label>Role</label>
+        <select id="admRoleSel">
+          <option value="chair">chair</option>
+          <option value="reviewer">reviewer</option>
+          <option value="author">author</option>
+        </select>
+        <button class="btn-prim" id="btnAdminAssign">POST /admin/events/:eventId/assign</button>
+      </div>
+      <div>
+        <h3>Lists</h3>
+        <div class="row">
+          <button id="btnAdminListUsers">GET /admin/users</button>
+          <button id="btnAdminListEvents">GET /admin/events</button>
+        </div>
+        <label>Event ID</label><input id="admEvtUsersId" placeholder="1" />
+        <button id="btnAdminListEventUsers">GET /admin/events/:eventId/users</button>
+      </div>
+    </div>
+    <div class="out" id="outAdmin"></div>
+  </section>
+
+  <!-- Event actions -->
+  <section class="card">
+    <h2>Event Actions</h2>
+    <div class="grid g3">
+      <div>
+        <h3>Register (self)</h3>
+        <label>Event ID</label><input id="evtRegId" placeholder="1" />
+        <button class="btn-prim" id="btnEvtRegister">POST /events/:eventId/register</button>
+      </div>
+      <div>
+        <h3>Assign Reviewer</h3>
+        <label>Event ID</label><input id="evtAssignEventId" placeholder="1" />
+        <label>Submission ID</label><input id="evtAssignSubId" placeholder="1" />
+        <label>Reviewer</label>
+        <select id="evtReviewerSel"></select>
+        <button class="btn-prim" id="btnEvtAssign">POST /events/:eventId/submissions/:id/assign</button>
+      </div>
+      <div>
+        <h3>Review & Decision</h3>
+        <label>Event ID</label><input id="evtActionEventId" placeholder="1" />
+        <label>Submission ID</label><input id="evtActionSubId" placeholder="1" />
+        <div class="row" style="margin-top:6px">
+          <input id="evtScore" placeholder="score (e.g. 8)" style="max-width:120px" />
+          <button id="btnEvtReview">POST /events/:eventId/submissions/:id/reviews</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <input id="evtDecision" placeholder="accept|reject" style="max-width:160px" />
+          <input id="evtReason" placeholder="reason" style="min-width:220px" />
+          <button id="btnEvtDecision">POST /events/:eventId/submissions/:id/decision</button>
         </div>
       </div>
-      <div class="out" id="outAuth"></div>
-    </section>
+    </div>
+    <div class="out" id="outEvent"></div>
+  </section>
 
-    <!-- Admin -->
-    <section class="card">
-      <h2>Admin</h2>
-      <div class="cols3">
-        <div>
-          <h3>Create User</h3>
-          <label>Email</label><input id="admEmail" placeholder="rev2@example.com"/>
-          <label>Name</label><input id="admName" placeholder="Reviewer Two"/>
-          <label>Password</label><input id="admPw" type="password" placeholder="StrongP@ssw0rd!"/>
-          <label>Role</label><input id="admRole" placeholder="reviewer | decision_maker | chair"/>
-          <label>Categories (for reviewer/DM)</label><input id="admCats" placeholder="A,B"/>
-          <button class="btn-prim" id="btnAdminCreate">POST /admin/users</button>
-        </div>
-        <div>
-          <h3>Users / Categories</h3>
-          <div class="row">
-            <button id="btnAdminListUsers">GET /admin/users</button>
-            <button id="btnAdminListCats">GET /admin/categories</button>
-          </div>
-          <p class="muted">Filters:</p>
-          <div class="row">
-            <input id="admListRole" placeholder="role=reviewer"/>
-            <input id="admListQ" placeholder="q=alice"/>
-            <button id="btnAdminListUsersQ">Query</button>
-          </div>
-        </div>
-        <div>
-          <h3>Set User Categories</h3>
-          <label>User ID</label><input id="admSetUserId" placeholder="5"/>
-          <label>Role Scope</label><input id="admSetRoleScope" placeholder="reviewer | decision_maker"/>
-          <label>Categories</label><input id="admSetCats" placeholder="A,B"/>
-          <button id="btnAdminSetCats">POST /admin/users/:id/categories</button>
+  <!-- Submissions (Author) -->
+  <section class="card">
+    <h2>Submissions (Author)</h2>
+    <div class="grid g2">
+      <div>
+        <h3>Create Submission</h3>
+        <label>Event ID</label><input id="subEventId" placeholder="1" />
+        <label>Title</label><input id="subTitle" placeholder="My Paper" />
+        <label>IRC member email (optional)</label><input id="subIrcEmail" placeholder="coauthor@email.com" />
+        <label>PDF</label><input id="subPdf" type="file" accept="application/pdf" />
+        <button class="btn-prim" id="btnCreateSub">POST /submissions/:eventId</button>
+      </div>
+      <div>
+        <h3>My Submissions</h3>
+        <label>Event ID</label><input id="subListEventId" placeholder="1" />
+        <div class="row" style="margin-top:6px">
+          <button id="btnListMine">GET /submissions/:eventId/mine</button>
+          <input id="subGetId" placeholder="id" style="max-width:100px" />
+          <button id="btnGetMine">GET /submissions/:eventId/:id</button>
         </div>
       </div>
-      <div class="out" id="outAdmin"></div>
-    </section>
+    </div>
+    <div class="out" id="outSubs"></div>
+  </section>
 
-    <!-- Submissions -->
-    <section class="card">
-      <h2>Submissions (Author)</h2>
-      <div class="cols">
-        <div>
-          <h3>Create Draft</h3>
-          <label>Title</label><input id="subTitle" placeholder="My Paper"/>
-          <label>Category</label><input id="subCategory" placeholder="A" maxlength="1"/>
-          <label>IRC member email (optional)</label><input id="subIrcEmail" placeholder="coauthor@email.com"/>
-          <label>PDF</label><input id="subPdf" type="file" accept="application/pdf"/>
-          <button class="btn-prim" id="btnCreateSubmission">POST /submissions</button>
-        </div>
-        <div>
-          <h3>My Submissions</h3>
-          <div class="row">
-            <button id="btnMySubs">GET /submissions/mine</button>
-            <input id="getSubId" placeholder="id" style="max-width:120px"/>
-            <button id="btnGetSub">GET /submissions/:id</button>
-          </div>
-        </div>
+  <!-- Final -->
+  <section class="card">
+    <h2>Final Submission</h2>
+    <div class="grid g2">
+      <div>
+        <h3>Upload Final PDF</h3>
+        <label>Event ID</label><input id="finalEventId" placeholder="1" />
+        <label>Submission ID</label><input id="finalSubId" placeholder="1" />
+        <label>PDF</label><input id="finalFile" type="file" accept="application/pdf" />
+        <button class="btn-prim" id="btnFinalUpload">POST /submissions/:eventId/:id/final</button>
       </div>
-      <div class="out" id="outSubs"></div>
-    </section>
-
-    <!-- Chair -->
-    <section class="card">
-      <h2>Chair</h2>
-      <div class="cols3">
-        <div>
-          <h3>Submissions (filter)</h3>
-          <label>Status</label><input id="chairQStatus" placeholder="submitted|under_review"/>
-          <label>Category</label><input id="chairQCat" placeholder="A"/>
-          <label>Search</label><input id="chairQQ" placeholder="title contains..."/>
-          <div class="row">
-            <input id="chairQPage" placeholder="page" style="max-width:90px"/>
-            <input id="chairQLimit" placeholder="limit" style="max-width:90px"/>
-            <button id="btnChairList">GET /chair/submissions</button>
-          </div>
+      <div>
+        <h3>View / Download Final</h3>
+        <label>Event ID</label><input id="finalViewEventId" placeholder="1" />
+        <label>Submission ID</label><input id="finalViewSubId" placeholder="1" />
+        <div class="row" style="margin-top:6px">
+          <button id="btnFinalInlineA">Open inline (events-first)</button>
+          <button id="btnFinalDownloadA">Download (events-first)</button>
         </div>
-        <div>
-          <h3>Assign Reviewers</h3>
-          <label>Submission ID</label><input id="chairAssignSubId" placeholder="1"/>
-          <label>Reviewer IDs (comma)</label><input id="chairAssignReviewerIds" placeholder="2,5"/>
-          <label>Due At (ISO)</label><input id="chairAssignDue" placeholder="2025-09-15"/>
-          <div class="row">
-            <button class="btn-prim" id="btnChairAssign">POST /chair/submissions/:id/assign</button>
-            <button id="btnChairAssignForce">assign?force=1</button>
-          </div>
+        <div class="row" style="margin-top:6px">
+          <button id="btnFinalInlineB">Open inline (subs-first)</button>
+          <button id="btnFinalDownloadB">Download (subs-first)</button>
         </div>
-        <div>
-          <h3>Unassign</h3>
-          <label>Submission ID</label><input id="chairUnSubId" placeholder="1"/>
-          <label>Reviewer IDs (comma)</label><input id="chairUnIds" placeholder="2"/>
-          <div class="row">
-            <button id="btnChairUnassign">POST /chair/submissions/:id/unassign</button>
-            <button class="btn-warn" id="btnChairUnassignForce">unassign (force)</button>
-          </div>
-          <h3 style="margin-top:12px;">Assignments</h3>
-          <label>Submission ID</label><input id="chairAsnListId" placeholder="1"/>
-          <button id="btnChairAsnList">GET /chair/submissions/:id/assignments</button>
-          <h3 style="margin-top:12px;">Reviewers by Category</h3>
-          <label>Category</label><input id="chairListRevCat" placeholder="A"/>
-          <button id="btnChairListRev">GET /chair/reviewers?category=A</button>
-        </div>
+        <p class="hint">
+          Events-first: <code>/events/<span class="hl">:eventId</span>/submissions/<span class="hl">:id</span>/final.pdf</code><br/>
+          Submissions-first: <code>/submissions/<span class="hl">:eventId</span>/<span class="hl">:id</span>/final.pdf</code>
+        </p>
       </div>
-      <div class="out" id="outChair"></div>
-    </section>
+    </div>
+    <iframe id="finalFrame" title="Final PDF Preview"></iframe>
+    <div class="out" id="outFinal"></div>
+  </section>
 
-    <!-- Reviewer -->
-    <section class="card">
-      <h2>Reviewer</h2>
-      <div class="cols">
-        <div>
-          <h3>My Assignments</h3>
-          <button id="btnRevList">GET /reviewer/assignments</button>
-        </div>
-        <div>
-          <h3>Submit Review</h3>
-          <label>Submission ID</label><input id="revSubId" placeholder="1"/>
-          <label>Score (0..10)</label><input id="revScore" placeholder="8.5"/>
-          <label>Comments for Author</label><textarea id="revComAuth" rows="3"></textarea>
-          <label>Confidential Comments</label><textarea id="revComConf" rows="3"></textarea>
-          <button class="btn-prim" id="btnRevSubmit">POST /reviewer/submissions/:id/reviews</button>
-        </div>
-      </div>
-      <div class="out" id="outReviewer"></div>
-    </section>
+  <p class="hint">
+    Notes:
+    <br/>• Mutating calls auto-attach <small class="kv">X-CSRF-Token</small> from the <small class="kv">csrf-token</small> cookie.
+    <br/>• Quick Login uses the CREDS defined in the script.
+  </p>
 
-    <!-- Decisions -->
-    <section class="card">
-      <h2>Decision Maker</h2>
-      <div class="cols3">
-        <div>
-          <h3>Queue</h3>
-          <label>Min reviews (optional)</label><input id="dmMin" placeholder="1"/>
-          <label>Category (optional)</label><input id="dmCat" placeholder="A"/>
-          <button id="btnDmQueue">GET /decisions/queue</button>
-        </div>
-        <div>
-          <h3>Details</h3>
-          <label>Submission ID</label><input id="dmSubId" placeholder="1"/>
-          <button id="btnDmGet">GET /decisions/:submission_id</button>
-        </div>
-        <div>
-          <h3>Make Decision</h3>
-          <label>Submission ID</label><input id="dmDecSubId" placeholder="1"/>
-          <label>Decision</label><input id="dmDecision" placeholder="accept | reject"/>
-          <label>Reason</label><textarea id="dmReason" rows="3"></textarea>
-          <div class="row">
-            <button class="btn-prim" id="btnDmPost">POST /decisions/:submission_id</button>
-            <button id="btnDmPostForce" title="Admin only">POST (force=1)</button>
-          </div>
-        </div>
-      </div>
-      <div class="out" id="outDm"></div>
-    </section>
+</div>
 
-    <!-- Final upload & safe download -->
-    <section class="card">
-      <h2>Final Submission</h2>
-      <div class="cols">
-        <div>
-          <h3>Upload Final PDF</h3>
-          <label>Submission ID</label><input id="finalSubId" placeholder="1"/>
-          <label>PDF</label><input id="finalFile" type="file" accept="application/pdf"/>
-          <button class="btn-prim" id="btnFinalUpload">POST /submissions/:id/final</button>
-        </div>
-        <div>
-          <h3>View / Download Final</h3>
-          <label>Submission ID</label><input id="finalViewId" placeholder="1"/>
-          <div class="row">
-            <button id="btnFinalInline">Open inline</button>
-            <button id="btnFinalDownload">Download (dl=1)</button>
-          </div>
-          <p class="muted">Served via <code>/submissions/:id/final.pdf</code> with authz &amp; range support.</p>
-        </div>
-      </div>
-      <iframe id="finalFrame" title="Final PDF preview"></iframe>
-      <div class="out" id="outFinal"></div>
-    </section>
+<script>
+/* ===== CREDS (fixed) ===== */
+const CREDS = {
+  admin:    { email:'admin1@example.com',    password:'StrongP@ssw0rd!', name:'Admin One' },
+  author:   { email:'author@email.com',      password:'StrongP@ssw0rd!', name:'Author One' },
+  chair:    { email:'chair1@example.com',    password:'StrongP@ssw0rd!', name:'Chair One' },
+  reviewer: { email:'reviewer1@example.com', password:'StrongP@ssw0rd!', name:'Reviewer One' }
+};
 
-    <p class="muted">Tip: This console uses <span class="small kv">credentials: "include"</span> so your httpOnly session cookie flows automatically. Mutating calls auto-add <span class="small kv">X-CSRF-Token</span> from the <span class="small kv">csrf-token</span> cookie.</p>
-  </div>
+/* ===== State ===== */
+let LAST_EVENT_ID = null;
+let LAST_SUBMISSION_ID = null;
+let ADMIN_USERS_CACHE = []; // /admin/users items
 
-  <script>
-    // ---------- helpers ----------
-    const $ = (id) => document.getElementById(id);
-    const show = (el, data) => el.textContent = (typeof data === 'string') ? data : JSON.stringify(data, null, 2);
-    const qs = (obj) => Object.entries(obj).filter(([,v]) => v !== '' && v !== undefined && v !== null).map(([k,v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
-    const getCookie = (name) => document.cookie.split('; ').find(s => s.startsWith(name+'='))?.split('=')[1];
+/* ===== DOM helpers ===== */
+const $ = (id) => document.getElementById(id);
+const show = (el, data) => { el.textContent = (typeof data === 'string') ? data : JSON.stringify(data, null, 2); el.scrollTop = el.scrollHeight; };
+const getCookie = (name) => document.cookie.split('; ').find(s => s.startsWith(name+'='))?.split('=')[1];
+const setBadge = () => { $("lastIds").textContent = `event: ${LAST_EVENT_ID ?? '—'} · sub: ${LAST_SUBMISSION_ID ?? '—'}`; };
 
-    function base() {
-      return $("baseUrl").value.replace(/\/$/, "");
-    }
-    function updBadges(resp) {
-      try {
-        const lim = resp.headers?.get?.('x-ratelimit-remaining') ?? resp.headers?.get?.('X-RateLimit-Remaining');
-        if (lim !== null && lim !== undefined) $("rate").textContent = `rate: ${lim}`;
-      } catch {}
-    }
-    async function api(path, opts = {}) {
-      const isWrite = (opts.method || 'GET').match(/POST|PUT|PATCH|DELETE/i);
-      opts.credentials = 'include';
-      opts.headers = opts.headers || {};
-      if (isWrite && !opts.headers['X-CSRF-Token']) {
-        const t = getCookie('csrf-token');
-        if (t) opts.headers['X-CSRF-Token'] = decodeURIComponent(t);
-      }
-      const res = await fetch(base() + path, opts);
-      updBadges(res);
-      const ct = res.headers.get('content-type') || '';
-      let data;
-      try { data = ct.includes('application/json') ? await res.json() : await res.text(); }
-      catch { data = await res.text(); }
-      return { status: res.status, headers: Object.fromEntries(res.headers.entries()), data };
-    }
-    function saveCfg() {
-      localStorage.setItem('irc_base', $("baseUrl").value);
-      localStorage.setItem('irc_metrics', $("metricsTok").value);
-    }
-    function loadCfg() {
-      const b = localStorage.getItem('irc_base'); if (b) $("baseUrl").value = b;
-      const m = localStorage.getItem('irc_metrics'); if (m) $("metricsTok").value = m;
-    }
-    loadCfg();
+/* ===== Config persistence ===== */
+function base(){ return $("baseUrl").value.replace(/\/+$/,''); }
+function saveCfg(){ localStorage.setItem('irc_base', $("baseUrl").value); localStorage.setItem('irc_metrics', $("metricsTok").value); }
+function loadCfg(){
+  const b = localStorage.getItem('irc_base'); if (b) $("baseUrl").value = b;
+  const m = localStorage.getItem('irc_metrics'); if (m) $("metricsTok").value = m;
+}
+loadCfg();
 
-    // Whoami badge update
-    async function refreshWhoAmI() {
-      const r = await api('/auth/me');
-      if (r?.data?.user) {
-        const u = r.data.user;
-        $("whoami").textContent = `${u.email} (${u.role})`;
-        $("whoami").classList.add('ok');
-      } else {
-        $("whoami").textContent = 'guest';
-        $("whoami").classList.remove('ok');
-      }
-      const c = getCookie('csrf-token');
-      $("csrfstate").textContent = `csrf:${c ? 'set' : '—'}`;
-    }
+/* ===== Generic API helper ===== */
+async function api(path, opts = {}) {
+  const isWrite = (opts.method || 'GET').match(/POST|PUT|PATCH|DELETE/i);
+  opts.credentials = 'include';
+  opts.headers = opts.headers || {};
+  if (isWrite && !opts.headers['X-CSRF-Token']) {
+    const t = getCookie('csrf-token');
+    if (t) opts.headers['X-CSRF-Token'] = decodeURIComponent(t);
+  }
+  const res = await fetch(base() + path, opts);
+  try {
+    const lim = res.headers.get('x-ratelimit-remaining') || res.headers.get('X-RateLimit-Remaining');
+    if (lim !== null && lim !== undefined) $("ratelimit").textContent = `rate: ${lim}`;
+  } catch {}
+  const ct = res.headers.get('content-type') || '';
+  let data;
+  try { data = ct.includes('application/json') ? await res.json() : await res.text(); }
+  catch { data = await res.text(); }
+  return { status: res.status, headers: Object.fromEntries(res.headers.entries()), data };
+}
 
-    // ---------- Config ----------
-    $("btnSaveCfg").onclick = () => { saveCfg(); alert('Saved.'); };
-    $("btnPing").onclick = async () => show($("outPing"), await api('/healthz'));
-    $("btnReady").onclick = async () => show($("outPing"), await api('/readyz'));
-    $("btnMetrics").onclick = async () => {
-      const tok = $("metricsTok").value.trim();
-      const r = await api('/metrics', { headers: tok ? { 'Authorization': `Bearer ${tok}` } : {} });
-      show($("outPing"), r);
-    };
-    $("btnShowCookies").onclick = () => show($("outPing"), document.cookie || '(no cookies)');
+/* ===== WhoAmI / CSRF badges ===== */
+async function refreshWhoAmI(){
+  const r = await api('/auth/me');
+  if (r?.data?.user) {
+    const u = r.data.user;
+    $("whoami").textContent = `${u.email}${u.is_admin ? ' (admin)' : ''}`;
+    $("whoami").classList.add('ok');
+  } else {
+    $("whoami").textContent = 'guest';
+    $("whoami").classList.remove('ok');
+  }
+  $("csrfstate").textContent = `csrf:${getCookie('csrf-token') ? 'set' : '—'}`;
+}
 
-    // ---------- Auth ----------
-    $("btnCSRF").onclick = async () => { const r = await api('/auth/csrf-token'); show($("outAuth"), r); refreshWhoAmI(); };
-    $("btnRegister").onclick = async () => {
-      const body = { email: $("regEmail").value, name: $("regName").value, password: $("regPw").value };
-      const r = await api('/auth/register', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(body) });
-      show($("outAuth"), r);
-      refreshWhoAmI();
-    };
-    $("btnLogin").onclick = async () => {
-      const r = await api('/auth/login', {
-        method: 'POST', headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify({ email: $("logEmail").value, password: $("logPw").value })
-      });
-      show($("outAuth"), r);
-      refreshWhoAmI();
-    };
-    $("btnMe").onclick = async () => { show($("outAuth"), await api('/auth/me')); };
-    $("btnRefresh").onclick = async () => { show($("outAuth"), await api('/auth/refresh', { method:'POST' })); };
-    $("btnLogout").onclick = async () => { show($("outAuth"), await api('/auth/logout', { method:'POST' })); refreshWhoAmI(); };
+/* ===== Populate user selects by CREDS name ===== */
+function fillUserSelects(){
+  const byName = [
+    {key:'admin', label:'Admin One (admin1@example.com)'},
+    {key:'author',label:'Author One (author@email.com)'},
+    {key:'chair', label:'Chair One (chair1@example.com)'},
+    {key:'reviewer',label:'Reviewer One (reviewer1@example.com)'}
+  ];
+  const userSel = $("admUserSel");
+  const revSel = $("evtReviewerSel");
+  userSel.innerHTML = ''; revSel.innerHTML = '';
+  byName.forEach(u=>{
+    const opt1 = document.createElement('option'); opt1.value = u.key; opt1.textContent = u.label; userSel.appendChild(opt1);
+    const opt2 = document.createElement('option'); opt2.value = u.key; opt2.textContent = u.label; revSel.appendChild(opt2);
+  });
+}
+fillUserSelects();
 
-    // ---------- Admin ----------
-    $("btnAdminCreate").onclick = async () => {
-      const role = $("admRole").value.trim();
-      const categories = ($("admCats").value.trim() || '').split(',').map(s=>s.trim()).filter(Boolean);
-      const body = { email:$("admEmail").value, name:$("admName").value, password:$("admPw").value, role, categories };
-      const r = await api('/admin/users', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) });
-      show($("outAdmin"), r);
-    };
-    $("btnAdminListUsers").onclick = async () => show($("outAdmin"), await api('/admin/users'));
-    $("btnAdminListCats").onclick = async () => show($("outAdmin"), await api('/admin/categories'));
-    $("btnAdminListUsersQ").onclick = async () => {
-      const role = $("admListRole").value.replace(/^role=/,'').trim();
-      const q = $("admListQ").value.replace(/^q=/,'').trim();
-      const query = qs({ role, q });
-      show($("outAdmin"), await api(`/admin/users${query ? '?'+query : ''}`));
-    };
-    $("btnAdminSetCats").onclick = async () => {
-      const userId = $("admSetUserId").value.trim();
-      const role_scope = $("admSetRoleScope").value.trim();
-      const categories = ($("admSetCats").value.trim() || '').split(',').map(s=>s.trim()).filter(Boolean);
-      const r = await api(`/admin/users/${userId}/categories`, {
-        method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ role_scope, categories })
-      });
-      show($("outAdmin"), r);
-    };
+/* ===== Sample PDF for inputs ===== */
+function makeSampleBlob(){
+  return new Blob(["%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>%%EOF\n"], { type:'application/pdf' });
+}
+function attachSampleTo(input){
+  const file = new File([makeSampleBlob()], "sample.pdf", { type:'application/pdf' });
+  const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files;
+}
 
-    // ---------- Submissions ----------
-    $("btnCreateSubmission").onclick = async () => {
-      const fd = new FormData();
-      fd.append('title', $("subTitle").value);
-      fd.append('category_id', $("subCategory").value);
-      if ($("subIrcEmail").value) fd.append('irc_member_email_optional', $("subIrcEmail").value);
-      const file = $("subPdf").files[0]; if (file) fd.append('pdf', file);
-      const r = await api('/submissions', { method:'POST', body: fd });
-      show($("outSubs"), r);
-    };
-    $("btnMySubs").onclick = async () => show($("outSubs"), await api('/submissions/mine'));
-    $("btnGetSub").onclick = async () => {
-      const id = $("getSubId").value.trim(); if (!id) return;
-      show($("outSubs"), await api(`/submissions/${id}`));
-    };
+/* ===== Buttons: Config & Health ===== */
+$("btnSaveCfg").onclick = () => { saveCfg(); alert('Saved.'); };
+$("btnShowCookies").onclick = () => show($("outConfig"), document.cookie || '(no cookies)');
+$("btnMakeSample").onclick = () => { attachSampleTo($("subPdf")); attachSampleTo($("finalFile")); alert('Sample PDF attached to both upload inputs.'); };
+$("btnHealth").onclick = async () => show($("outConfig"), await api('/healthz'));
+$("btnReady").onclick  = async () => show($("outConfig"), await api('/readyz'));
+$("btnMetrics").onclick = async () => {
+  const tok = $("metricsTok").value.trim();
+  const headers = tok ? { 'Authorization': `Bearer ${tok}`, 'Accept':'text/plain' } : { 'Accept':'text/plain' };
+  show($("outConfig"), await api('/metrics', { headers }));
+};
+$("btnCSRF").onclick = async () => { const r = await api('/auth/csrf-token'); show($("outConfig"), r); refreshWhoAmI(); };
 
-    // ---------- Chair ----------
-    $("btnChairList").onclick = async () => {
-      const query = qs({
-        status: $("chairQStatus").value.trim(),
-        category: $("chairQCat").value.trim(),
-        q: $("chairQQ").value.trim(),
-        page: $("chairQPage").value.trim(),
-        limit: $("chairQLimit").value.trim()
-      });
-      show($("outChair"), await api(`/chair/submissions${query ? '?'+query : ''}`));
-    };
-    $("btnChairAssign").onclick = async () => {
-      const id = $("chairAssignSubId").value.trim();
-      const reviewers = $("chairAssignReviewerIds").value.split(',').map(s=>Number(s.trim())).filter(n=>!isNaN(n));
-      const due_at = $("chairAssignDue").value.trim();
-      const body = { reviewers }; if (due_at) body.due_at = due_at;
-      show($("outChair"), await api(`/chair/submissions/${id}/assign`, {
-        method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body)
-      }));
-    };
-    $("btnChairAssignForce").onclick = async () => {
-      const id = $("chairAssignSubId").value.trim();
-      const reviewers = $("chairAssignReviewerIds").value.split(',').map(s=>Number(s.trim())).filter(n=>!isNaN(n));
-      const due_at = $("chairAssignDue").value.trim();
-      const body = { reviewers }; if (due_at) body.due_at = due_at;
-      show($("outChair"), await api(`/chair/submissions/${id}/assign?force=1`, {
-        method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body)
-      }));
-    };
-    $("btnChairUnassign").onclick = async () => {
-      const id = $("chairUnSubId").value.trim();
-      const reviewers = $("chairUnIds").value.split(',').map(s=>Number(s.trim())).filter(n=>!isNaN(n));
-      show($("outChair"), await api(`/chair/submissions/${id}/unassign`, {
-        method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ reviewers })
-      }));
-    };
-    $("btnChairUnassignForce").onclick = async () => {
-      const id = $("chairUnSubId").value.trim();
-      const reviewers = $("chairUnIds").value.split(',').map(s=>Number(s.trim())).filter(n=>!isNaN(n));
-      show($("outChair"), await api(`/chair/submissions/${id}/unassign?force=1`, {
-        method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ reviewers, force:true })
-      }));
-    };
-    $("btnChairAsnList").onclick = async () => {
-      const id = $("chairAsnListId").value.trim();
-      show($("outChair"), await api(`/chair/submissions/${id}/assignments`));
-    };
-    $("btnChairListRev").onclick = async () => {
-      const cat = $("chairListRevCat").value.trim();
-      show($("outChair"), await api(`/chair/reviewers?category=${encodeURIComponent(cat)}`));
-    };
+/* ===== Buttons: Auth ===== */
+$("btnRegister").onclick = async () => {
+  const body = { email:$("regEmail").value, name:$("regName").value, password:$("regPw").value };
+  const r = await api('/auth/register', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  show($("outAuth"), r); refreshWhoAmI();
+};
+$("btnLogin").onclick = async () => {
+  const body = { email:$("logEmail").value, password:$("logPw").value };
+  const r = await api('/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  show($("outAuth"), r); await api('/auth/csrf-token'); refreshWhoAmI();
+};
+$("btnMe").onclick = async () => show($("outAuth"), await api('/auth/me'));
+$("btnRefresh").onclick = async () => show($("outAuth"), await api('/auth/refresh', { method:'POST' }));
+$("btnLogout").onclick = async () => { show($("outAuth"), await api('/auth/logout', { method:'POST' })); refreshWhoAmI(); };
 
-    // ---------- Reviewer ----------
-    $("btnRevList").onclick = async () => show($("outReviewer"), await api('/reviewer/assignments'));
-    $("btnRevSubmit").onclick = async () => {
-      const id = $("revSubId").value.trim();
-      const score_overall = Number($("revScore").value.trim());
-      const comments_for_author = $("revComAuth").value;
-      const comments_confidential = $("revComConf").value;
-      show($("outReviewer"), await api(`/reviewer/submissions/${id}/reviews`, {
-        method:'POST', headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ score_overall, comments_for_author, comments_confidential })
-      }));
-    };
+// Quick login helpers
+async function quickLogin(cred){
+  $("logEmail").value = cred.email; $("logPw").value = cred.password;
+  await $("btnLogin").onclick();
+}
+$("btnLoginAdmin").onclick    = () => quickLogin(CREDS.admin);
+$("btnLoginAuthor").onclick   = () => quickLogin(CREDS.author);
+$("btnLoginChair").onclick    = () => quickLogin(CREDS.chair);
+$("btnLoginReviewer").onclick = () => quickLogin(CREDS.reviewer);
 
-    // ---------- Decisions ----------
-    $("btnDmQueue").onclick = async () => {
-      const min = $("dmMin").value.trim();
-      const category = $("dmCat").value.trim();
-      const q = qs({ min, category });
-      const r = await api(`/decisions/queue${q ? '?'+q : ''}`);
-      show($("outDm"), r);
-    };
-    $("btnDmGet").onclick = async () => {
-      const id = $("dmSubId").value.trim();
-      show($("outDm"), await api(`/decisions/${id}`));
-    };
-    $("btnDmPost").onclick = async () => {
-      const id = $("dmDecSubId").value.trim();
-      const decision = $("dmDecision").value.trim();
-      const reason = $("dmReason").value;
-      show($("outDm"), await api(`/decisions/${id}`, {
-        method:'POST', headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ decision, reason })
-      }));
-    };
-    $("btnDmPostForce").onclick = async () => {
-      const id = $("dmDecSubId").value.trim();
-      const decision = $("dmDecision").value.trim();
-      const reason = $("dmReason").value;
-      show($("outDm"), await api(`/decisions/${id}?force=1`, {
-        method:'POST', headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ decision, reason })
-      }));
-    };
+/* ===== Buttons: Admin ===== */
+$("btnAdminCreateEvent").onclick = async () => {
+  const name = $("admEvtName").value || `Auto Event ${Date.now()}`;
+  const description = $("admEvtDesc").value || 'Test event';
+  const r = await api('/admin/events', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, description }) });
+  show($("outAdmin"), r);
+  if (r?.data?.event?.id) {
+    LAST_EVENT_ID = r.data.event.id; setBadge();
+    $("admEvtId").value = LAST_EVENT_ID;
+    $("evtRegId").value = LAST_EVENT_ID;
+    $("evtAssignEventId").value = LAST_EVENT_ID;
+    $("evtActionEventId").value = LAST_EVENT_ID;
+    $("subEventId").value = LAST_EVENT_ID;
+    $("subListEventId").value = LAST_EVENT_ID;
+    $("finalEventId").value = LAST_EVENT_ID;
+    $("finalViewEventId").value = LAST_EVENT_ID;
+  }
+};
 
-    // ---------- Final upload & safe download ----------
-    $("btnFinalUpload").onclick = async () => {
-      const id = $("finalSubId").value.trim();
-      const f = $("finalFile").files[0];
-      const fd = new FormData(); if (f) fd.append('pdf', f);
-      const r = await api(`/submissions/${id}/final`, { method:'POST', body: fd });
-      show($("outFinal"), r);
-    };
-    $("btnFinalInline").onclick = () => {
-      const id = $("finalViewId").value.trim();
-      if (!id) return;
-      $("finalFrame").src = `${base()}/submissions/${encodeURIComponent(id)}/final.pdf`;
-    };
-    $("btnFinalDownload").onclick = () => {
-      const id = $("finalViewId").value.trim();
-      if (!id) return;
-      window.open(`${base()}/submissions/${encodeURIComponent(id)}/final.pdf?dl=1`, '_blank');
-    };
+$("btnAdminListUsers").onclick = async () => {
+  const r = await api('/admin/users');
+  show($("outAdmin"), r);
+  ADMIN_USERS_CACHE = r?.data?.items || [];
+};
 
-    // initial
-    refreshWhoAmI();
-  </script>
+$("btnAdminListEvents").onclick = async () => {
+  const r = await api('/admin/events');
+  show($("outAdmin"), r);
+};
+
+$("btnAdminListEventUsers").onclick = async () => {
+  const eid = $("admEvtUsersId").value.trim();
+  show($("outAdmin"), await api(`/admin/events/${encodeURIComponent(eid)}/users`));
+};
+
+$("btnAdminAssign").onclick = async () => {
+  const eid = $("admEvtId").value.trim();
+  const role = $("admRoleSel").value;
+  const key = $("admUserSel").value; // admin|author|chair|reviewer
+  const userEmail = CREDS[key]?.email;
+  if (!userEmail) return show($("outAdmin"), { error:'unknown user selection' });
+
+  if (!ADMIN_USERS_CACHE.length) {
+    const list = await api('/admin/users');
+    ADMIN_USERS_CACHE = list?.data?.items || [];
+  }
+  const u = ADMIN_USERS_CACHE.find(x => x.email === userEmail);
+  if (!u) return show($("outAdmin"), { error:'user not found in /admin/users', email:userEmail });
+
+  const r = await api(`/admin/events/${encodeURIComponent(eid)}/assign`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ user_id: u.id, role })
+  });
+  show($("outAdmin"), r);
+};
+
+/* ===== Buttons: Event actions ===== */
+$("btnEvtRegister").onclick = async () => {
+  const eid = $("evtRegId").value.trim();
+  const r = await api(`/events/${encodeURIComponent(eid)}/register`, { method:'POST' });
+  show($("outEvent"), r);
+};
+
+$("btnEvtAssign").onclick = async () => {
+  const eid = $("evtAssignEventId").value.trim();
+  const sid = $("evtAssignSubId").value.trim();
+  const key = $("evtReviewerSel").value;
+  const email = CREDS[key]?.email;
+  if (!email) return show($("outEvent"), { error:'reviewer selection invalid' });
+
+  if (!ADMIN_USERS_CACHE.length) {
+    const list = await api('/admin/users');
+    ADMIN_USERS_CACHE = list?.data?.items || [];
+  }
+  const u = ADMIN_USERS_CACHE.find(x => x.email === email);
+  if (!u) return show($("outEvent"), { error:'reviewer not found', email });
+
+  const r = await api(`/events/${encodeURIComponent(eid)}/submissions/${encodeURIComponent(sid)}/assign`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ reviewer_id: u.id })
+  });
+  show($("outEvent"), r);
+};
+
+$("btnEvtReview").onclick = async () => {
+  const eid = $("evtActionEventId").value.trim();
+  const sid = $("evtActionSubId").value.trim();
+  const score = Number($("evtScore").value || '0');
+  const r = await api(`/events/${encodeURIComponent(eid)}/submissions/${encodeURIComponent(sid)}/reviews`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ score, comments_for_author: 'ok' })
+  });
+  show($("outEvent"), r);
+};
+
+$("btnEvtDecision").onclick = async () => {
+  const eid = $("evtActionEventId").value.trim();
+  const sid = $("evtActionSubId").value.trim();
+  const decision = $("evtDecision").value.trim();
+  const reason = $("evtReason").value.trim();
+  const r = await api(`/events/${encodeURIComponent(eid)}/submissions/${encodeURIComponent(sid)}/decision`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ decision, reason })
+  });
+  show($("outEvent"), r);
+};
+
+/* ===== Buttons: Submissions ===== */
+$("btnCreateSub").onclick = async () => {
+  const eid = $("subEventId").value.trim();
+  const fd = new FormData();
+  fd.append('title', $("subTitle").value);
+  const opt = $("subIrcEmail").value.trim(); if (opt) fd.append('irc_member_email_optional', opt);
+  const file = $("subPdf").files[0]; if (file) fd.append('pdf', file);
+  const r = await api(`/submissions/${encodeURIComponent(eid)}`, { method:'POST', body: fd });
+  show($("outSubs"), r);
+  if (r?.data?.submission?.id) {
+    LAST_SUBMISSION_ID = r.data.submission.id; setBadge();
+    $("evtAssignSubId").value = LAST_SUBMISSION_ID;
+    $("evtActionSubId").value = LAST_SUBMISSION_ID;
+    $("finalSubId").value = LAST_SUBMISSION_ID;
+    $("finalViewSubId").value = LAST_SUBMISSION_ID;
+  }
+};
+
+$("btnListMine").onclick = async () => {
+  const eid = $("subListEventId").value.trim();
+  show($("outSubs"), await api(`/submissions/${encodeURIComponent(eid)}/mine`));
+};
+
+$("btnGetMine").onclick = async () => {
+  const eid = $("subListEventId").value.trim();
+  const id  = $("subGetId").value.trim();
+  show($("outSubs"), await api(`/submissions/${encodeURIComponent(eid)}/${encodeURIComponent(id)}`));
+};
+
+/* ===== Buttons: Final ===== */
+$("btnFinalUpload").onclick = async () => {
+  const eid = $("finalEventId").value.trim();
+  const sid = $("finalSubId").value.trim();
+  const fd = new FormData();
+  const f = $("finalFile").files[0]; if (f) fd.append('pdf', f);
+  const r = await api(`/submissions/${encodeURIComponent(eid)}/${encodeURIComponent(sid)}/final`, { method:'POST', body: fd });
+  show($("outFinal"), r);
+};
+
+// Open inline (events-first)
+$("btnFinalInlineA").onclick = () => {
+  const evId = $("finalViewEventId").value.trim();
+  const sid  = $("finalViewSubId").value.trim();
+  if (!evId || !sid) return;
+  $("finalFrame").src = `${base()}/events/${encodeURIComponent(evId)}/submissions/${encodeURIComponent(sid)}/final.pdf`;
+};
+
+// Download (events-first)
+$("btnFinalDownloadA").onclick = () => {
+  const evId = $("finalViewEventId").value.trim();
+  const sid  = $("finalViewSubId").value.trim();
+  if (!evId || !sid) return;
+  window.open(`${base()}/events/${encodeURIComponent(evId)}/submissions/${encodeURIComponent(sid)}/final.pdf?dl=1`, '_blank');
+};
+
+// Open inline (submissions-first)
+$("btnFinalInlineB").onclick = () => {
+  const evId = $("finalViewEventId").value.trim();
+  const sid  = $("finalViewSubId").value.trim();
+  if (!evId || !sid) return;
+  $("finalFrame").src = `${base()}/submissions/${encodeURIComponent(evId)}/${encodeURIComponent(sid)}/final.pdf`;
+};
+
+// Download (submissions-first)
+$("btnFinalDownloadB").onclick = () => {
+  const evId = $("finalViewEventId").value.trim();
+  const sid  = $("finalViewSubId").value.trim();
+  if (!evId || !sid) return;
+  window.open(`${base()}/submissions/${encodeURIComponent(evId)}/${encodeURIComponent(sid)}/final.pdf?dl=1`, '_blank');
+};
+
+/* initial */
+refreshWhoAmI();
+</script>
 </body>
 </html>
