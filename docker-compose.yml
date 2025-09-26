@@ -32,6 +32,19 @@ services:
     networks:
       - default
       - irc-shared-net
+  client:
+    build:
+      context: ./client
+      dockerfile: ../Dockerfile.client
+    container_name: ircset_client
+    ports:
+      - "5173:5173"
+    depends_on:
+      - ircset_server   # match your service name
+    networks:
+      - default
+      - irc-shared-net
+
 
 volumes:
   ircset-pg:
