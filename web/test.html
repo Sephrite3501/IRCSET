@@ -12,9 +12,12 @@
   main{display:grid;grid-template-columns:380px 1fr;gap:16px;padding:16px}
   .panel{background:var(--card);border-radius:12px;padding:14px;border:1px solid #223}
   label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
-  input,button{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #2a355a;background:#0d1430;color:var(--text)}
-  input:focus{border-color:var(--accent);outline:none}
+  input,button,textarea{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #2a355a;background:#0d1430;color:var(--text)}
+  textarea{min-height:78px;resize:vertical}
+  input:focus,textarea:focus{border-color:var(--accent);outline:none}
   .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
   button{cursor:pointer;background:#17214a;border-color:#2a355a}
   button.primary{background:linear-gradient(180deg,#2d5bff,#1840d4);border:none}
   table{width:100%;border-collapse:collapse}
@@ -40,10 +43,37 @@
     <label>Submission Title</label>
     <input id="title" value="Auto Test Submission" />
 
-    <label>Reviewer Score (0–10)</label>
-    <input id="rating" value="8" />
+    <div class="grid4">
+      <div>
+        <label>Technical (1–5)</label>
+        <input id="scoreTech" type="number" min="1" max="5" value="4" />
+      </div>
+      <div>
+        <label>Relevance (1–5)</label>
+        <input id="scoreRel" type="number" min="1" max="5" value="4" />
+      </div>
+      <div>
+        <label>Innovation (1–5)</label>
+        <input id="scoreInn" type="number" min="1" max="5" value="4" />
+      </div>
+      <div>
+        <label>Writing (1–5)</label>
+        <input id="scoreWri" type="number" min="1" max="5" value="4" />
+      </div>
+    </div>
 
-    <label>Upload a PDF</label>
+    <div class="grid2" style="margin-top:8px">
+      <div>
+        <label>Comments for Author</label>
+        <textarea id="cmtAuthor">auto ok — public to authors</textarea>
+      </div>
+      <div>
+        <label>Comments for Committee</label>
+        <textarea id="cmtCommittee">internal to committee</textarea>
+      </div>
+    </div>
+
+    <label style="margin-top:10px">Upload a PDF</label>
     <input id="pdf" type="file" accept="application/pdf" />
 
     <div class="row" style="margin-top:12px">
@@ -85,7 +115,7 @@
 /* ===== config ===== */
 const CREDS = {
   admin:    { email:'admin1@example.com',    password:'StrongP@ssw0rd!', name:'Admin One' },
-  author:   { email:'author@email.com',   password:'StrongP@ssw0rd!', name:'Author One' },
+  author:   { email:'author@email.com',      password:'StrongP@ssw0rd!', name:'Author One' },
   chair:    { email:'chair1@example.com',    password:'StrongP@ssw0rd!', name:'Chair One' },
   reviewer: { email:'reviewer1@example.com', password:'StrongP@ssw0rd!', name:'Reviewer One' }
 };
@@ -96,7 +126,8 @@ let USER_IDS = {};
 
 /* ===== helpers ===== */
 function base(){ return document.getElementById('base').value.replace(/\/+$/,''); }
-function score(){ return Number(document.getElementById('rating').value || 5); }
+function vInt(id){ return Math.max(1, Math.min(5, parseInt(document.getElementById(id).value || '0', 10) || 1)); }
+function g(id){ return document.getElementById(id).value; }
 function logLine(...args){ const pre=document.getElementById('log'); pre.textContent+=args.join(' ')+"\n"; pre.scrollTop=pre.scrollHeight; }
 function setRow(step,ok,msg){ const tbody=document.querySelector('#results tbody'); const tr=document.createElement('tr'); tr.innerHTML=`<td>${step}</td><td>${ok?'<span class="ok">PASS</span>':'<span class="bad">FAIL</span>'}</td><td><pre>${escapeHtml(typeof msg==='string'?msg:JSON.stringify(msg,null,2))}</pre></td>`; tbody.appendChild(tr); return ok; }
 function clearUI(){ document.querySelector('#results tbody').innerHTML=''; document.getElementById('log').textContent=''; }
@@ -109,11 +140,7 @@ async function getCsrf(){ const r=await http('/auth/csrf-token'); if(r.ok) CSRF=
 async function login(email, password){
   for (let attempt=0; attempt<3; attempt++){
     const r = await http('/auth/login', { method:'POST', body:{ email, password }});
-    if (r.ok){
-      // refresh CSRF after login
-      await getCsrf();
-      return true;
-    }
+    if (r.ok){ await getCsrf(); return true; }
     if (r.status !== 429) return false;
     await sleep(1200 * (attempt+1));
   }
@@ -143,10 +170,9 @@ async function runAll(){
 
     // 0) Register all accounts
     for(const role of Object.keys(CREDS)){
-      if(role==='admin'){ // admin created via bootstrap seed, skip register
-        USER_IDS[role]=1; 
-      } else {
-        await login(CREDS.admin.email,CREDS.admin.password); // need admin to call /admin/users fallback
+      if(role==='admin'){ USER_IDS[role]=1; }
+      else {
+        await login(CREDS.admin.email,CREDS.admin.password);
         const id=await ensureRegistered(CREDS[role]);
         USER_IDS[role]=id;
         await logout();
@@ -171,67 +197,73 @@ async function runAll(){
     const fd = new FormData();
     fd.append('pdf', document.getElementById('pdf').files[0]);
     fd.append('title', document.getElementById('title').value);
-
-    r = await http(`/submissions/${LAST_EVENT_ID}`, {
-      method: 'POST',
-      isForm: true,
-      body: fd
-    });
+    r = await http(`/submissions/${LAST_EVENT_ID}`, { method:'POST', isForm:true, body:fd });
     LAST_SUB_ID = r.data.submission?.id;
     setRow('Submit paper', r.ok, r.data);
     await logout();
 
+    // 3) Chair — assign reviewer
+    await login(CREDS.chair.email, CREDS.chair.password);
+    r = await http(`/events/${LAST_EVENT_ID}/submissions/${LAST_SUB_ID}/assign`, {
+      method:'POST',
+      body:{ reviewer_id: USER_IDS.reviewer }
+    });
+    setRow('Assign reviewer', r.ok, r.data);
+    await logout();
 
-// 3) Chair — assign reviewer
-await login(CREDS.chair.email, CREDS.chair.password);
-r = await http(`/events/${LAST_EVENT_ID}/submissions/${LAST_SUB_ID}/assign`, {
-  method:'POST',
-  body:{ reviewer_id: USER_IDS.reviewer }
-});
-setRow('Assign reviewer', r.ok, r.data);
-await logout();
+    // 4) Reviewer — submit review (ITP style)
+    await login(CREDS.reviewer.email, CREDS.reviewer.password);
+    const payload = {
+      score_technical:  vInt('scoreTech'),
+      score_relevance:  vInt('scoreRel'),
+      score_innovation: vInt('scoreInn'),
+      score_writing:    vInt('scoreWri'),
+      comments_for_author: g('cmtAuthor'),
+      comments_committee:  g('cmtCommittee')
+    };
+    r = await http(`/events/${LAST_EVENT_ID}/submissions/${LAST_SUB_ID}/reviews`, {
+      method:'POST',
+      body: payload
+    });
+    setRow('Submit review', r.ok, r.data);
+    await logout();
 
-// 4) Reviewer — submit review
-await login(CREDS.reviewer.email, CREDS.reviewer.password);
-r = await http(`/events/${LAST_EVENT_ID}/submissions/${LAST_SUB_ID}/reviews`, {
-  method:'POST',
-  body:{ score: score(), comments_for_author: 'auto ok' }
-});
-setRow('Submit review', r.ok, r.data);
-await logout();
+    // 5) Chair — make decision
+    await login(CREDS.chair.email, CREDS.chair.password);
+    r = await http(`/events/${LAST_EVENT_ID}/submissions/${LAST_SUB_ID}/decision`, {
+      method:'POST',
+      body:{ decision: 'accept', reason: 'auto accept' }
+    });
+    setRow('Make decision', r.ok, r.data);
+    await logout();
 
-// 5) Chair — make decision
-await login(CREDS.chair.email, CREDS.chair.password);
-r = await http(`/events/${LAST_EVENT_ID}/submissions/${LAST_SUB_ID}/decision`, {
-  method:'POST',
-  body:{ decision: 'accept', reason: 'auto accept' }
-});
-setRow('Make decision', r.ok, r.data);
-await logout();
-
-// 6) Author — upload final
-await login(CREDS.author.email, CREDS.author.password);
-const fd2 = new FormData();
-fd2.append('pdf', document.getElementById('pdf').files[0]);
-
-r = await http(`/submissions/${LAST_EVENT_ID}/${LAST_SUB_ID}/final`, {
-  method: 'POST',
-  isForm: true,
-  body: fd2
-});
-setRow('Upload final', r.ok, r.data);
-await logout();
-
+    // 6) Author — upload final
+    await login(CREDS.author.email, CREDS.author.password);
+    const fd2 = new FormData();
+    fd2.append('pdf', document.getElementById('pdf').files[0]);
+    r = await http(`/submissions/${LAST_EVENT_ID}/${LAST_SUB_ID}/final`, {
+      method:'POST',
+      isForm:true,
+      body:fd2
+    });
+    setRow('Upload final', r.ok, r.data);
+    await logout();
 
   }catch(e){ setRow('Unexpected',false,e.message||e); }
   finally{ btn.disabled=false; btn.textContent='Run Full Flow'; }
 }
 
 /* ===== sample PDF ===== */
-function makeSample(){ const blob=new Blob(["%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>%%EOF\n"],{type:'application/pdf'}); const f=new File([blob],"sample.pdf",{type:'application/pdf'}); const input=document.getElementById('pdf'); const dt=new DataTransfer(); dt.items.add(f); input.files=dt.files; }
+function makeSample(){
+  const blob=new Blob(["%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>%%EOF\n"],{type:'application/pdf'});
+  const f=new File([blob],"sample.pdf",{type:'application/pdf'});
+  const input=document.getElementById('pdf'); const dt=new DataTransfer(); dt.items.add(f); input.files=dt.files;
+}
 
 /* ===== download final ===== */
-async function dlAs(who,btn){ /* same as before, can be filled in */ }
+async function dlAs(who,btn){
+  // implement as you had previously; unchanged by review payload update
+}
 </script>
 </body>
 </html>

@@ -9,6 +9,8 @@ import {
   getMySubmission,
 } from '../controllers/submissionsController.js';
 
+import { listReviewsForAuthor } from '../controllers/reviewsReadController.js';
+
 const r = Router();
 
 // POST /submissions/:eventId (multipart/form-data, field: pdf)
@@ -34,6 +36,13 @@ r.get(
   requireAuth,
   validateParamId('id'),
   getMySubmission
+);
+
+
+r.get('/:eventId/:id/reviews',
+  requireAuth,
+  validateParamId('id'),
+  listReviewsForAuthor
 );
 
 export default r;

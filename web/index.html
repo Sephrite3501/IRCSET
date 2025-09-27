@@ -22,6 +22,8 @@
   label{display:block;font-size:12px;color:var(--muted);margin:8px 0 4px}
   input,select,textarea{width:100%;padding:8px 10px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#e5e7eb}
   input[type=file]{color:#cbd5e1}
+  input[type=number]{-moz-appearance:textfield}
+  input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{ -webkit-appearance: none; margin: 0;}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   button{background:#1f2937;color:#e5e7eb;border:1px solid #334155;border-radius:8px;padding:8px 12px;cursor:pointer}
   button:hover{border-color:#475569}
@@ -166,11 +168,22 @@
         <h3>Review & Decision</h3>
         <label>Event ID</label><input id="evtActionEventId" placeholder="1" />
         <label>Submission ID</label><input id="evtActionSubId" placeholder="1" />
+        <div class="grid g2" style="margin-top:6px">
+          <div>
+            <label>Technical (1–5)</label><input id="scTech" type="number" min="1" max="5" step="1" value="4" />
+            <label>Relevance (1–5)</label><input id="scRel" type="number" min="1" max="5" step="1" value="4" />
+          </div>
+          <div>
+            <label>Innovation (1–5)</label><input id="scInn" type="number" min="1" max="5" step="1" value="4" />
+            <label>Writing (1–5)</label><input id="scWri" type="number" min="1" max="5" step="1" value="4" />
+          </div>
+        </div>
+        <label>Comments for Author</label><textarea id="revComAuthor" rows="3" placeholder="Feedback visible to author"></textarea>
+        <label>Comments for Committee</label><textarea id="revComCommittee" rows="3" placeholder="Private to committee"></textarea>
         <div class="row" style="margin-top:6px">
-          <input id="evtScore" placeholder="score (e.g. 8)" style="max-width:120px" />
           <button id="btnEvtReview">POST /events/:eventId/submissions/:id/reviews</button>
         </div>
-        <div class="row" style="margin-top:6px">
+        <div class="row" style="margin-top:10px">
           <input id="evtDecision" placeholder="accept|reject" style="max-width:160px" />
           <input id="evtReason" placeholder="reason" style="min-width:220px" />
           <button id="btnEvtDecision">POST /events/:eventId/submissions/:id/decision</button>
@@ -178,6 +191,29 @@
       </div>
     </div>
     <div class="out" id="outEvent"></div>
+  </section>
+
+  <!-- Reviews (Read) -->
+  <section class="card">
+    <h2>Reviews (Read)</h2>
+    <div class="grid g3">
+      <div>
+        <h3>Inputs</h3>
+        <label>Event ID</label><input id="revViewEventId" placeholder="1" />
+        <label>Submission ID</label><input id="revViewSubId" placeholder="1" />
+      </div>
+      <div>
+        <h3>Author View</h3>
+        <p class="hint">GET /submissions/:eventId/:id/reviews</p>
+        <button id="btnAuthorViewReviews" class="btn-prim">Author: list reviews</button>
+      </div>
+      <div>
+        <h3>Chair View</h3>
+        <p class="hint">GET /chair/:eventId/submissions/:id/reviews</p>
+        <button id="btnChairViewReviews" class="btn-prim">Chair: list reviews</button>
+      </div>
+    </div>
+    <div class="out" id="outReviews"></div>
   </section>
 
   <!-- Submissions (Author) -->
@@ -205,9 +241,9 @@
     <div class="out" id="outSubs"></div>
   </section>
 
-  <!-- Final -->
+  <!-- Files -->
   <section class="card">
-    <h2>Final Submission</h2>
+    <h2>Files (Initial & Final)</h2>
     <div class="grid g2">
       <div>
         <h3>Upload Final PDF</h3>
@@ -217,7 +253,7 @@
         <button class="btn-prim" id="btnFinalUpload">POST /submissions/:eventId/:id/final</button>
       </div>
       <div>
-        <h3>View / Download Final</h3>
+        <h3>View / Download – Final</h3>
         <label>Event ID</label><input id="finalViewEventId" placeholder="1" />
         <label>Submission ID</label><input id="finalViewSubId" placeholder="1" />
         <div class="row" style="margin-top:6px">
@@ -235,6 +271,30 @@
       </div>
     </div>
     <iframe id="finalFrame" title="Final PDF Preview"></iframe>
+
+    <div class="grid g2" style="margin-top:14px">
+      <div>
+        <h3>View / Download – Initial</h3>
+        <label>Event ID</label><input id="initViewEventId" placeholder="1" />
+        <label>Submission ID</label><input id="initViewSubId" placeholder="1" />
+        <div class="row" style="margin-top:6px">
+          <button id="btnInitInlineA">Open inline (events-first)</button>
+          <button id="btnInitDownloadA">Download (events-first)</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button id="btnInitInlineB">Open inline (subs-first)</button>
+          <button id="btnInitDownloadB">Download (subs-first)</button>
+        </div>
+        <p class="hint">
+          Events-first: <code>/events/<span class="hl">:eventId</span>/submissions/<span class="hl">:id</span>/initial.pdf</code><br/>
+          Submissions-first: <code>/submissions/<span class="hl">:eventId</span>/<span class="hl">:id</span>/initial.pdf</code>
+        </p>
+      </div>
+      <div>
+        <iframe id="initFrame" title="Initial PDF Preview"></iframe>
+      </div>
+    </div>
+
     <div class="out" id="outFinal"></div>
   </section>
 
@@ -383,14 +443,7 @@ $("btnAdminCreateEvent").onclick = async () => {
   show($("outAdmin"), r);
   if (r?.data?.event?.id) {
     LAST_EVENT_ID = r.data.event.id; setBadge();
-    $("admEvtId").value = LAST_EVENT_ID;
-    $("evtRegId").value = LAST_EVENT_ID;
-    $("evtAssignEventId").value = LAST_EVENT_ID;
-    $("evtActionEventId").value = LAST_EVENT_ID;
-    $("subEventId").value = LAST_EVENT_ID;
-    $("subListEventId").value = LAST_EVENT_ID;
-    $("finalEventId").value = LAST_EVENT_ID;
-    $("finalViewEventId").value = LAST_EVENT_ID;
+    ["admEvtId","evtRegId","evtAssignEventId","evtActionEventId","subEventId","subListEventId","finalEventId","finalViewEventId","initViewEventId","revViewEventId"].forEach(id => $(id).value = LAST_EVENT_ID);
   }
 };
 
@@ -462,10 +515,19 @@ $("btnEvtAssign").onclick = async () => {
 $("btnEvtReview").onclick = async () => {
   const eid = $("evtActionEventId").value.trim();
   const sid = $("evtActionSubId").value.trim();
-  const score = Number($("evtScore").value || '0');
+  const technical  = Math.max(1, Math.min(5, Number($("scTech").value || 1)));
+  const relevance  = Math.max(1, Math.min(5, Number($("scRel").value || 1)));
+  const innovation = Math.max(1, Math.min(5, Number($("scInn").value || 1)));
+  const writing    = Math.max(1, Math.min(5, Number($("scWri").value || 1)));
+  const comments_for_author    = $("revComAuthor").value;
+  const comments_for_committee = $("revComCommittee").value;
+
   const r = await api(`/events/${encodeURIComponent(eid)}/submissions/${encodeURIComponent(sid)}/reviews`, {
     method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ score, comments_for_author: 'ok' })
+    body: JSON.stringify({
+      technical, relevance, innovation, writing,
+      comments_for_author, comments_for_committee
+    })
   });
   show($("outEvent"), r);
 };
@@ -482,6 +544,21 @@ $("btnEvtDecision").onclick = async () => {
   show($("outEvent"), r);
 };
 
+/* ===== Reviews (Read) ===== */
+$("btnAuthorViewReviews").onclick = async () => {
+  const eid = $("revViewEventId").value.trim();
+  const sid = $("revViewSubId").value.trim();
+  const r = await api(`/submissions/${encodeURIComponent(eid)}/${encodeURIComponent(sid)}/reviews`);
+  show($("outReviews"), { endpoint: 'author', ...r });
+};
+
+$("btnChairViewReviews").onclick = async () => {
+  const eid = $("revViewEventId").value.trim();
+  const sid = $("revViewSubId").value.trim();
+  const r = await api(`/chair/${encodeURIComponent(eid)}/submissions/${encodeURIComponent(sid)}/reviews`);
+  show($("outReviews"), { endpoint: 'chair', ...r });
+};
+
 /* ===== Buttons: Submissions ===== */
 $("btnCreateSub").onclick = async () => {
   const eid = $("subEventId").value.trim();
@@ -493,10 +570,7 @@ $("btnCreateSub").onclick = async () => {
   show($("outSubs"), r);
   if (r?.data?.submission?.id) {
     LAST_SUBMISSION_ID = r.data.submission.id; setBadge();
-    $("evtAssignSubId").value = LAST_SUBMISSION_ID;
-    $("evtActionSubId").value = LAST_SUBMISSION_ID;
-    $("finalSubId").value = LAST_SUBMISSION_ID;
-    $("finalViewSubId").value = LAST_SUBMISSION_ID;
+    ["evtAssignSubId","evtActionSubId","finalSubId","finalViewSubId","initViewSubId","revViewSubId"].forEach(id => $(id).value = LAST_SUBMISSION_ID);
   }
 };
 
@@ -511,7 +585,7 @@ $("btnGetMine").onclick = async () => {
   show($("outSubs"), await api(`/submissions/${encodeURIComponent(eid)}/${encodeURIComponent(id)}`));
 };
 
-/* ===== Buttons: Final ===== */
+/* ===== Buttons: Final upload ===== */
 $("btnFinalUpload").onclick = async () => {
   const eid = $("finalEventId").value.trim();
   const sid = $("finalSubId").value.trim();
@@ -521,6 +595,7 @@ $("btnFinalUpload").onclick = async () => {
   show($("outFinal"), r);
 };
 
+/* ===== Buttons: Final view/download ===== */
 // Open inline (events-first)
 $("btnFinalInlineA").onclick = () => {
   const evId = $("finalViewEventId").value.trim();
@@ -528,7 +603,6 @@ $("btnFinalInlineA").onclick = () => {
   if (!evId || !sid) return;
   $("finalFrame").src = `${base()}/events/${encodeURIComponent(evId)}/submissions/${encodeURIComponent(sid)}/final.pdf`;
 };
-
 // Download (events-first)
 $("btnFinalDownloadA").onclick = () => {
   const evId = $("finalViewEventId").value.trim();
@@ -536,7 +610,6 @@ $("btnFinalDownloadA").onclick = () => {
   if (!evId || !sid) return;
   window.open(`${base()}/events/${encodeURIComponent(evId)}/submissions/${encodeURIComponent(sid)}/final.pdf?dl=1`, '_blank');
 };
-
 // Open inline (submissions-first)
 $("btnFinalInlineB").onclick = () => {
   const evId = $("finalViewEventId").value.trim();
@@ -544,13 +617,42 @@ $("btnFinalInlineB").onclick = () => {
   if (!evId || !sid) return;
   $("finalFrame").src = `${base()}/submissions/${encodeURIComponent(evId)}/${encodeURIComponent(sid)}/final.pdf`;
 };
-
 // Download (submissions-first)
 $("btnFinalDownloadB").onclick = () => {
   const evId = $("finalViewEventId").value.trim();
   const sid  = $("finalViewSubId").value.trim();
   if (!evId || !sid) return;
   window.open(`${base()}/submissions/${encodeURIComponent(evId)}/${encodeURIComponent(sid)}/final.pdf?dl=1`, '_blank');
+};
+
+/* ===== Buttons: Initial view/download ===== */
+// Open inline (events-first)
+$("btnInitInlineA").onclick = () => {
+  const evId = $("initViewEventId").value.trim();
+  const sid  = $("initViewSubId").value.trim();
+  if (!evId || !sid) return;
+  $("initFrame").src = `${base()}/events/${encodeURIComponent(evId)}/submissions/${encodeURIComponent(sid)}/initial.pdf`;
+};
+// Download (events-first)
+$("btnInitDownloadA").onclick = () => {
+  const evId = $("initViewEventId").value.trim();
+  const sid  = $("initViewSubId").value.trim();
+  if (!evId || !sid) return;
+  window.open(`${base()}/events/${encodeURIComponent(evId)}/submissions/${encodeURIComponent(sid)}/initial.pdf?dl=1`, '_blank');
+};
+// Open inline (submissions-first)
+$("btnInitInlineB").onclick = () => {
+  const evId = $("initViewEventId").value.trim();
+  const sid  = $("initViewSubId").value.trim();
+  if (!evId || !sid) return;
+  $("initFrame").src = `${base()}/submissions/${encodeURIComponent(evId)}/${encodeURIComponent(sid)}/initial.pdf`;
+};
+// Download (submissions-first)
+$("btnInitDownloadB").onclick = () => {
+  const evId = $("initViewEventId").value.trim();
+  const sid  = $("initViewSubId").value.trim();
+  if (!evId || !sid) return;
+  window.open(`${base()}/submissions/${encodeURIComponent(evId)}/${encodeURIComponent(sid)}/initial.pdf?dl=1`, '_blank');
 };
 
 /* initial */

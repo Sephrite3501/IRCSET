@@ -35,13 +35,22 @@ export async function submitReview(req, res) {
 
   if (!sid || !eventId) return res.status(400).json({ error: 'Bad id' });
 
-  const score = Number(req.body?.score_overall);
-  if (!Number.isFinite(score) || score < 0 || score > 10) {
-    return res.status(400).json({ error: 'Bad score' });
+  // ----- ITP scoring: 4 subscores, each 1..5
+  const sTech = Number(req.body?.score_technical);
+  const sRel  = Number(req.body?.score_relevance);
+  const sInn  = Number(req.body?.score_innovation);
+  const sWri  = Number(req.body?.score_writing);
+
+  const isScoreOk = (n) => Number.isInteger(n) && n >= 1 && n <= 5;
+  if (![sTech, sRel, sInn, sWri].every(isScoreOk)) {
+    return res.status(400).json({ error: 'Scores must be integers 1..5 (technical, relevance, innovation, writing)' });
   }
 
-  const comments_for_author   = cleanText(req.body?.comments_for_author, { max: 5000 }) || null;
-  const comments_confidential = cleanText(req.body?.comments_confidential, { max: 5000 }) || null;
+  // overall = simple average of 4 subscores, 2 decimals
+  const score_overall = Math.round(((sTech + sRel + sInn + sWri) / 4) * 100) / 100;
+
+  const comments_for_author   = cleanText(req.body?.comments_for_author,   { max: 5000 }) || null;
+  const comments_committee    = cleanText(req.body?.comments_committee,    { max: 5000 }) || null;
 
   // Ensure submission belongs to event + user is assigned
   const a = await appDb.query(
@@ -58,15 +67,23 @@ export async function submitReview(req, res) {
 
     await appDb.query(
       `INSERT INTO reviews
-         (submission_id, reviewer_user_id, score_overall, comments_for_author, comments_confidential, status, submitted_at)
-       VALUES ($1,$2,$3,$4,$5,'submitted', NOW())
+         (submission_id, reviewer_user_id,
+          score_technical, score_relevance, score_innovation, score_writing,
+          score_overall,
+          comments_for_author, comments_committee,
+          status, submitted_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'submitted', NOW())
        ON CONFLICT (submission_id, reviewer_user_id) DO UPDATE
-         SET score_overall=EXCLUDED.score_overall,
-             comments_for_author=EXCLUDED.comments_for_author,
-             comments_confidential=EXCLUDED.comments_confidential,
-             status='submitted',
-             submitted_at=NOW()`,
-      [sid, uid, score, comments_for_author, comments_confidential]
+         SET score_technical       = EXCLUDED.score_technical,
+             score_relevance       = EXCLUDED.score_relevance,
+             score_innovation      = EXCLUDED.score_innovation,
+             score_writing         = EXCLUDED.score_writing,
+             score_overall         = EXCLUDED.score_overall,
+             comments_for_author   = EXCLUDED.comments_for_author,
+             comments_committee    = EXCLUDED.comments_committee,
+             status                = 'submitted',
+             submitted_at          = NOW()`,
+      [sid, uid, sTech, sRel, sInn, sWri, score_overall, comments_for_author, comments_committee]
     );
 
     await appDb.query('COMMIT');
@@ -79,10 +96,14 @@ export async function submitReview(req, res) {
       severity: 'info',
       entity_type: 'submission',
       entity_id: String(sid),
-      details: { score, cfa_len: comments_for_author?.length || 0, cc_len: comments_confidential?.length || 0 }
+      details: {
+        scores: { technical: sTech, relevance: sRel, innovation: sInn, writing: sWri, overall: score_overall },
+        cfa_len: comments_for_author?.length || 0,
+        cc_len: comments_committee?.length || 0
+      }
     }).catch(() => {});
 
-    return res.json({ ok: true });
+    return res.json({ ok: true, score_overall });
   } catch (e) {
     await appDb.query('ROLLBACK');
     return res.status(500).json({ error: 'Server error' });

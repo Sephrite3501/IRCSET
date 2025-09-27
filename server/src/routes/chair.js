@@ -19,6 +19,8 @@ import {
   makeDecision,
 } from '../controllers/decisionsController.js';
 
+import { listReviewsForChair } from '../controllers/reviewsReadController.js';
+
 const r = Router();
 
 // --------------------
@@ -52,6 +54,12 @@ r.post('/:eventId/submissions/:id/unassign',
   unassignReviewers
 );
 
+r.get('/:eventId/submissions/:id/reviews',
+  requireAuth, requireEventRole('chair'),
+  validateParamId('id'),
+  listReviewsForChair
+);
+
 // --------------------
 // Chair: Decisions
 // --------------------
@@ -71,5 +79,7 @@ r.post('/:eventId/decisions/:submission_id',
   writeLimiter, validateParamId('submission_id'),
   makeDecision
 );
+
+
 
 export default r;

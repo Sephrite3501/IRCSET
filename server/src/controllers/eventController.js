@@ -86,23 +86,54 @@ export async function submitReview(req, res) {
 
   const eventId = Number(req.params.eventId || 0);
   const submissionId = Number(req.params.submissionId || 0);
-  const score = Number(req.body?.score || 0);
-  const commentsAuthor = cleanText(req.body?.comments_for_author, { max: 2000 });
-  const commentsConf = cleanText(req.body?.comments_confidential, { max: 2000 });
+  if (!eventId || !submissionId) throw new ApiError(400, 'Invalid input');
 
-  if (!eventId || !submissionId || isNaN(score)) throw new ApiError(400, 'Invalid input');
+  // 1..5 subscores
+  const sTech = Number(req.body?.score_technical);
+  const sRel  = Number(req.body?.score_relevance);
+  const sInn  = Number(req.body?.score_innovation);
+  const sWri  = Number(req.body?.score_writing);
+  const ok = (n) => Number.isInteger(n) && n >= 1 && n <= 5;
+  if (![sTech, sRel, sInn, sWri].every(ok)) {
+    throw new ApiError(400, 'Scores must be integers 1..5 (technical, relevance, innovation, writing)');
+  }
+  const score_overall = Math.round(((sTech + sRel + sInn + sWri) / 4) * 100) / 100;
+
+  const comments_for_author = cleanText(req.body?.comments_for_author, { max: 5000 }) || null;
+  const comments_committee  = cleanText(req.body?.comments_committee,  { max: 5000 }) || null;
+
+  // Ensure reviewer is assigned to this submission within the event
+  const chk = await appDb.query(
+    `SELECT 1
+       FROM assignments a
+       JOIN submissions s ON s.id = a.submission_id
+      WHERE a.submission_id=$1
+        AND a.reviewer_user_id=$2
+        AND s.event_id=$3`,
+    [submissionId, req.user.uid, eventId]
+  );
+  if (!chk.rowCount) throw new ApiError(403, 'Not assigned');
 
   const ins = await appDb.query(
-    `INSERT INTO reviews (submission_id, reviewer_user_id, score_overall, comments_for_author, comments_confidential, status, submitted_at)
-     VALUES ($1,$2,$3,$4,$5,'submitted',NOW())
+    `INSERT INTO reviews
+       (submission_id, reviewer_user_id,
+        score_technical, score_relevance, score_innovation, score_writing,
+        score_overall, comments_for_author, comments_committee,
+        status, submitted_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'submitted', NOW())
      ON CONFLICT (submission_id, reviewer_user_id)
-     DO UPDATE SET score_overall=$3,
-                   comments_for_author=$4,
-                   comments_confidential=$5,
-                   status='submitted',
-                   submitted_at=NOW()
+     DO UPDATE SET
+        score_technical     = EXCLUDED.score_technical,
+        score_relevance     = EXCLUDED.score_relevance,
+        score_innovation    = EXCLUDED.score_innovation,
+        score_writing       = EXCLUDED.score_writing,
+        score_overall       = EXCLUDED.score_overall,
+        comments_for_author = EXCLUDED.comments_for_author,
+        comments_committee  = EXCLUDED.comments_committee,
+        status              = 'submitted',
+        submitted_at        = NOW()
      RETURNING id, submission_id, score_overall, status, submitted_at`,
-    [submissionId, req.user.uid, score, commentsAuthor, commentsConf]
+    [submissionId, req.user.uid, sTech, sRel, sInn, sWri, score_overall, comments_for_author, comments_committee]
   );
   const review = ins.rows[0];
 
@@ -111,7 +142,11 @@ export async function submitReview(req, res) {
     actorUserId: req.user.uid,
     action: 'review.submit',
     severity: 'info',
-    details: { event_id: eventId, submission_id: submissionId, score },
+    details: {
+      event_id: eventId,
+      submission_id: submissionId,
+      scores: { technical: sTech, relevance: sRel, innovation: sInn, writing: sWri, overall: score_overall }
+    },
     ip,
     userAgent
   });

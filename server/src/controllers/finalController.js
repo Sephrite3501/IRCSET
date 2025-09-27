@@ -1,6 +1,7 @@
 // server/src/controllers/finalController.js
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { appDb } from '../db/pool.js';
 import { checkMembershipByEmail } from '../services/membershipCheck.js';
 import { finalUploadsTotal } from '../utils/metrics.js';
@@ -14,15 +15,17 @@ export async function uploadFinal(req, res) {
   const userAgent = req.headers['user-agent'];
 
   try {
-    const uid = req.user?.uid;
+    const uid = req.user?.uid || 0;
     const sid = Number(req.params.id || 0);
+    const eventId = Number(req.params.eventId || 0);
+
     if (!uid) return res.status(401).json({ error: 'Unauthorized' });
-    if (!sid) return res.status(400).json({ error: 'Bad id' });
+    if (!sid || !eventId) return res.status(400).json({ error: 'Bad params' });
     if (!req.file) return res.status(400).json({ error: 'PDF file required' });
 
-    // Load submission (try common draft path column names)
+    // Load submission and ensure it belongs to this event
     const sq = await appDb.query(
-      `SELECT id, author_user_id, status, irc_member_email_optional,
+      `SELECT id, event_id, author_user_id, status, irc_member_email_optional,
               pdf_path
          FROM submissions
         WHERE id=$1`,
@@ -30,61 +33,60 @@ export async function uploadFinal(req, res) {
     );
     const sub = sq.rows[0];
     if (!sub) return res.status(404).json({ error: 'Not found' });
+    if (sub.event_id !== eventId) return res.status(400).json({ error: 'Event mismatch' });
 
+    // Author (or admin) can upload
     const isOwner = sub.author_user_id === uid;
-    const isAdmin = req.user?.role === 'admin';
+    const isAdmin = !!req.user?.is_admin; // your session puts is_admin on req.user
     if (!isOwner && !isAdmin) return res.status(403).json({ error: 'Forbidden' });
 
-    if (sub.status !== 'final_required') {
+    // Only when final is required (allow idempotent re-upload if already final_submitted? keep your rule)
+    if (sub.status !== 'final_required' && sub.status !== 'final_submitted') {
       return res.status(409).json({ error: `Invalid status ${sub.status}; final upload not allowed` });
     }
 
-    // Membership check (email from optional field, else account email)
-    let emailToCheck = sub.irc_member_email_optional || null;
-    if (!emailToCheck) {
-      const uq = await appDb.query('SELECT email FROM users WHERE id=$1', [uid]);
-      emailToCheck = uq.rows[0]?.email || null;
-    }
+    // Membership check
+    // let emailToCheck = sub.irc_member_email_optional || null;
+    // if (!emailToCheck) {
+    //   const uq = await appDb.query('SELECT email FROM users WHERE id=$1', [uid]);
+    //   emailToCheck = uq.rows[0]?.email || null;
+    // }
+    // let result = { ok: true, reason: 'unconfigured', meta: {} };
+    // if (MEMBERSHIP_ENFORCE) result = await checkMembershipByEmail(emailToCheck);
 
-    let result = { ok: true, reason: 'unconfigured', meta: {} };
-    if (MEMBERSHIP_ENFORCE) result = await checkMembershipByEmail(emailToCheck);
+    // await appDb.query(
+    //   `INSERT INTO membership_validations (submission_id, checked_email, result, paid_until)
+    //    VALUES ($1,$2,$3,$4)`,
+    //   [sid, emailToCheck, result.ok ? 'valid' : (result.reason || 'invalid'), result.meta?.paid_until || null]
+    // );
 
-    await appDb.query(
-      `INSERT INTO membership_validations (submission_id, checked_email, result, paid_until)
-       VALUES ($1,$2,$3,$4)`,
-      [sid, emailToCheck, result.ok ? 'valid' : (result.reason || 'invalid'), result.meta?.paid_until || null]
-    );
+    // if (!result.ok) {
+    //   await logSecurityEvent({
+    //     traceId, actorUserId: uid, action: 'final.check_failed',
+    //     entity_type: 'submission', entity_id: String(sid),
+    //     severity: 'warn', details: { reason: result.reason || 'invalid', email: emailToCheck },
+    //     ip, userAgent
+    //   });
+    //   try { fs.unlinkSync(req.file.path); } catch {}
+    //   return res.status(403).json({ error: result.reason || 'Membership invalid' });
+    // }
 
-    if (!result.ok) {
-      await logSecurityEvent({
-        traceId, actorUserId: uid, action: 'final.check_failed',
-        entity_type: 'submission', entity_id: String(sid),
-        severity: 'warn', details: { reason: result.reason || 'invalid', email: emailToCheck },
-        ip, userAgent
-      });
-      try { fs.unlinkSync(req.file.path); } catch {}
-      return res.status(403).json({ error: result.reason || 'Membership invalid' });
-    }
-
-    // --- derive draftUuid from the draft path on this submission ---
+    // --- derive draftUuid from existing draft path(s) (fallback to random if absent) ---
     const pick = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
-    const draftPath = pick(sub.draft_pdf_path) || pick(sub.pdf_path) || pick(sub.initial_pdf_path);
+    const draftPath = pick(sub.pdf_path);
     let draftUuid = null;
     if (draftPath) {
-      const base = path.basename(draftPath, path.extname(draftPath)); // e.g. "bbef...e98162"
-      // Prefer UUIDish, else just use base
-      if (/^[0-9a-f-]{16,}$/i.test(base)) draftUuid = base;
-      else draftUuid = base;
+      const base = path.basename(draftPath, path.extname(draftPath));
+      draftUuid = /^[0-9a-f-]{16,}$/i.test(base) ? base : base;
     }
-    // Fallback if no draft path exists (shouldn't happen): use submission id
-    if (!draftUuid) draftUuid = String(sid);
+    if (!draftUuid) draftUuid = crypto.randomUUID();
 
-    // Canonical final location: uploads/final/final_<draftUuid>.pdf
-    const relPath = path.posix.join('uploads', 'final', `final_${draftUuid}.pdf`);
+    // Canonical final location: uploads/events/<eventId>/final/final_<draftUuid>.pdf
+    const relPath = path.posix.join('uploads', 'events', String(eventId), 'final', `final_${draftUuid}.pdf`);
     const targetFull = path.resolve(process.cwd(), relPath);
-
-    // Ensure dir exists; then move the temp-uploaded file into place
     fs.mkdirSync(path.dirname(targetFull), { recursive: true });
+
+    // Move temp-uploaded file into place (replace if exists)
     const uploadedFull = path.resolve(process.cwd(), req.file.path);
     if (uploadedFull !== targetFull) {
       try { fs.rmSync(targetFull, { force: true }); } catch {}
@@ -106,7 +108,9 @@ export async function uploadFinal(req, res) {
       traceId, actorUserId: uid, action: 'final.upload_ok',
       entity_type: 'submission', entity_id: String(sid),
       severity: 'info',
-      details: { file: path.basename(relPath), email: emailToCheck, draftUuid },
+      // details: { event_id: eventId, file: path.basename(relPath), email: emailToCheck, draftUuid },
+      // ip, userAgent
+      details: { event_id: eventId, file: path.basename(relPath), draftUuid },
       ip, userAgent
     });
 

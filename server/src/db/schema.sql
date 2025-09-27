@@ -1,17 +1,12 @@
--- ========= BOOTSTRAP =========
+-- ======== CLEAN BOOTSTRAP (REPLACE WHOLE SCHEMA) ========
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 BEGIN;
 
--- =========================
--- Core tables
--- =========================
-
--- Drop old tables if exist
 DROP TABLE IF EXISTS session_tokens, audit_logs, membership_validations, decisions,
   reviews, assignments, submissions, event_roles, events, users CASCADE;
 
--- Users (no global role, just account + admin flag)
+-- Users
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
@@ -21,11 +16,9 @@ CREATE TABLE users (
   is_active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
-
--- Case-insensitive uniqueness (hardening)
 CREATE UNIQUE INDEX users_email_lower_unique ON users (LOWER(email));
 
--- Events (managed by admin)
+-- Events
 CREATE TABLE events (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
@@ -36,7 +29,7 @@ CREATE TABLE events (
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- Event roles (dynamic, scoped per event)
+-- Event roles
 CREATE TABLE event_roles (
   id SERIAL PRIMARY KEY,
   event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
@@ -45,7 +38,7 @@ CREATE TABLE event_roles (
   UNIQUE(event_id, user_id, role)
 );
 
--- Submissions (by authors, per event)
+-- Submissions
 CREATE TABLE submissions (
   id SERIAL PRIMARY KEY,
   event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
@@ -69,7 +62,7 @@ CREATE TABLE submissions (
     )
 );
 
--- Assignments (chair → reviewers)
+-- Assignments
 CREATE TABLE assignments (
   id SERIAL PRIMARY KEY,
   submission_id INTEGER NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
@@ -80,26 +73,44 @@ CREATE TABLE assignments (
   CONSTRAINT assignments_unique UNIQUE (submission_id, reviewer_user_id)
 );
 
--- Reviews
+-- Reviews (ITP style: four subscores 1..5, overall 1..5; two comment targets)
 CREATE TABLE reviews (
   id SERIAL PRIMARY KEY,
   submission_id INTEGER NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
   reviewer_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  score_overall NUMERIC(4,2) CHECK (score_overall >= 0 AND score_overall <= 10),
-  comments_for_author TEXT,
-  comments_confidential TEXT,
+
+  -- subscores 1..5
+  score_technical   SMALLINT CHECK (score_technical  BETWEEN 1 AND 5),
+  score_relevance   SMALLINT CHECK (score_relevance  BETWEEN 1 AND 5),
+  score_innovation  SMALLINT CHECK (score_innovation BETWEEN 1 AND 5),
+  score_writing     SMALLINT CHECK (score_writing    BETWEEN 1 AND 5),
+
+  -- overall kept for convenience (server computes avg of 4), 1..5
+  score_overall NUMERIC(4,2) CHECK (score_overall >= 1 AND score_overall <= 5),
+
+  comments_for_author   TEXT,
+  comments_committee    TEXT,     -- (renamed from comments_confidential)
+
   status TEXT NOT NULL CHECK (status IN ('assigned','in_progress','submitted')),
   submitted_at TIMESTAMP,
+
   CONSTRAINT reviews_unique UNIQUE (submission_id, reviewer_user_id),
   CONSTRAINT reviews_submitted_guard
     CHECK (status <> 'submitted' OR submitted_at IS NOT NULL),
-  CONSTRAINT reviews_score_when_submitted
-    CHECK (status <> 'submitted' OR score_overall IS NOT NULL),
-  CONSTRAINT reviews_submitted_at_iff_submitted
-    CHECK ( (submitted_at IS NOT NULL) = (status = 'submitted') )
+
+  -- when submitted, all four subscores and overall must be present
+  CONSTRAINT reviews_scores_present_when_submitted CHECK (
+    status <> 'submitted' OR (
+      score_technical IS NOT NULL
+      AND score_relevance IS NOT NULL
+      AND score_innovation IS NOT NULL
+      AND score_writing IS NOT NULL
+      AND score_overall IS NOT NULL
+    )
+  )
 );
 
--- Decisions (now made by Chair, no decision_maker)
+-- Decisions
 CREATE TABLE decisions (
   id SERIAL PRIMARY KEY,
   submission_id INTEGER NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
@@ -110,7 +121,7 @@ CREATE TABLE decisions (
   UNIQUE (submission_id)
 );
 
--- Membership validation audit (optional)
+-- Membership validation audit
 CREATE TABLE membership_validations (
   id SERIAL PRIMARY KEY,
   submission_id INTEGER NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
@@ -128,8 +139,7 @@ CREATE TABLE audit_logs (
   action TEXT NOT NULL,
   entity_type TEXT,
   entity_id TEXT,
-  severity TEXT NOT NULL DEFAULT 'info'
-    CHECK (severity IN ('info','warn','error')),
+  severity TEXT NOT NULL DEFAULT 'info' CHECK (severity IN ('info','warn','error')),
   details_json JSONB NOT NULL DEFAULT '{}',
   ip TEXT,
   user_agent TEXT,
@@ -147,45 +157,32 @@ CREATE TABLE session_tokens (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- =========================
--- Helpful indexes
--- =========================
+-- Indexes
 CREATE INDEX idx_submissions_author        ON submissions (author_user_id);
 CREATE INDEX idx_submissions_event         ON submissions (event_id);
 CREATE INDEX idx_submissions_status        ON submissions (status);
-
 CREATE INDEX idx_assignments_submission    ON assignments (submission_id);
 CREATE INDEX idx_reviews_submission        ON reviews (submission_id);
 CREATE INDEX idx_reviews_sub_status        ON reviews (submission_id, status);
-
 CREATE INDEX idx_decisions_submission      ON decisions (submission_id);
-
 CREATE INDEX idx_mv_submission             ON membership_validations (submission_id);
 CREATE INDEX idx_audit_entity              ON audit_logs (entity_type, entity_id);
-
 CREATE INDEX idx_session_tokens_user_exp   ON session_tokens (user_id, expires_at);
-
 CREATE INDEX idx_reviews_submitted_only    ON reviews (submission_id) WHERE status='submitted';
 
--- =========================
 -- Trigger: auto-touch submissions.updated_at
--- =========================
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   NEW.updated_at := NOW();
   RETURN NEW;
 END $$;
-
 DROP TRIGGER IF EXISTS trg_submissions_updated_at ON submissions;
 CREATE TRIGGER trg_submissions_updated_at
 BEFORE UPDATE ON submissions
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- =========================
--- Seed data (only admin for bootstrap)
--- Password = StrongP@ssw0rd!
--- =========================
+-- Seed admin (password = StrongP@ssw0rd!)
 INSERT INTO users (email, password_hash, name, is_admin)
 VALUES ('admin1@example.com', crypt('StrongP@ssw0rd!', gen_salt('bf', 10)), 'Admin One', true);
 
