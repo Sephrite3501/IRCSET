@@ -45,7 +45,7 @@ if (process.env.NODE_ENV === 'production') {
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
-const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:8080')
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS) //|| 'http://localhost:8080'
   .split(',')
   .map(s => s.trim());
 
@@ -69,7 +69,7 @@ app.use((err, req, res, next) => {
 });
 
 app.use(
-  ['/auth','/submissions','/reviewer','/chair','/admin'],
+  ['/api/auth','/submissions','/reviewer','/chair','/admin'],
   (req, res, next) => {
     res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma','no-cache');
@@ -97,7 +97,7 @@ app.use('/auth', authLimiter);
 
 // Routes
 app.use(health);
-app.use('/auth', auth);
+app.use('/api/auth', auth);
 app.use('/submissions', submissions);
 app.use('/chair', chair);
 app.use('/reviewer', reviewer);

@@ -5,7 +5,7 @@ import { createPinia } from 'pinia'
 import axios from 'axios'
 
 // ---- axios global config (no helper) ----
-axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3005'
+axios.defaults.baseURL = '/api'
 axios.defaults.withCredentials = true
 
 const CSRF_COOKIE = import.meta.env.VITE_CSRF_COOKIE || 'csrf-token'
