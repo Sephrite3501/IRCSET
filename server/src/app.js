@@ -45,7 +45,7 @@ if (process.env.NODE_ENV === 'production') {
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
-const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:5173')
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:8080')
   .split(',')
   .map(s => s.trim());
 

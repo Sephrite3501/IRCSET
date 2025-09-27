@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: ircsetuser
       POSTGRES_PASSWORD: ircsetpass
     ports:
-      - "5440:5432"
+      - "5341:5432"
     volumes:
       - ircset-pg:/var/lib/postgresql/data
       - ./server/src/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
@@ -38,7 +38,7 @@ services:
       dockerfile: ../Dockerfile.client
     container_name: ircset_client
     ports:
-      - "5173:5173"
+      - "8080:8080"
     depends_on:
       - ircset_server   # match your service name
     networks:

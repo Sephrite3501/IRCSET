@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 // Eager, relative imports
 import Login from '../views/public/Login.vue'
 import Register from '../views/public/Register.vue'
+import Home from '../views/public/Home.vue'
 // (optional) if you want a dashboard page:
 import Dashboard from '../views/public/Dashboard.vue'
 
