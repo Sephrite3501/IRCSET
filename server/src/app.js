@@ -18,6 +18,9 @@ import finalRoutes from './routes/final.js';
 import fileDownloadRouter from './routes/fileDownload.js';
 import eventsRouter from './routes/event.js';
 
+import dotenv from 'dotenv';
+dotenv.config();
+
 const app = express();
 app.set('trust proxy', 1);
 
