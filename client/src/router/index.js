@@ -6,12 +6,14 @@ import Register from '../views/public/Register.vue'
 import Home from '../views/public/Home.vue'
 // (optional) if you want a dashboard page:
 import Dashboard from '../views/public/Dashboard.vue'
+import Submission from '../views/public/Submission.vue'
 
 const routes = [
   { path: '/', component: Home },
   { path: '/login', component: Login },
   { path: '/register', component: Register },
   { path: '/dashboard', component: Dashboard }, // or delete if not needed
+  { path: '/submission', component: Submission }
 ]
 
 export const router = createRouter({

@@ -1,8 +1,11 @@
+/// <reference types="vite/client" />
 import { createApp } from 'vue'
 import App from './App.vue'   
 import { router } from './router/index.js'
 import { createPinia } from 'pinia'
 import axios from 'axios'
+
+import "./assets/main.css";
 
 // ---- axios global config (no helper) ----
 axios.defaults.baseURL = '/api'
