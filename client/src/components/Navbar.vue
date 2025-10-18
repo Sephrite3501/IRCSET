@@ -22,15 +22,57 @@
           Submit
         </RouterLink>
       </li>
-      <li>
+      <li v-if="user?.is_admin">
+      <RouterLink to="/admin/events" class="hover:text-yellow-400 transition-colors duration-200">
+          Admin
+      </RouterLink>
+      </li>
+      <li v-else-if="user?.roles?.includes('chair')">
+        <RouterLink to="/chair" class="hover:text-yellow-400 transition-colors duration-200">
+          Chair
+        </RouterLink>
+      </li>
+      <li v-if="!user">
         <RouterLink to="/login" class="hover:text-yellow-400 transition-colors duration-200">
           Login
         </RouterLink>
+      </li>
+      <li v-else>
+        <button
+          @click="logout"
+          class="text-sm text-red-400 hover:text-red-500 transition-colors duration-200"
+        >
+          Logout
+        </button>
       </li>
     </ul>
   </nav>
 </template>
 
 <script setup>
-import { RouterLink } from "vue-router";
+import { RouterLink, useRoute, useRouter } from "vue-router"
+import { ref, watch } from "vue"
+import axios from "axios"
+
+const route = useRoute()
+const user = ref(null)
+const router = useRouter()
+
+async function fetchMe() {
+  try {
+    const { data } = await axios.get("/auth/me") // -> /api/auth/me via proxy
+    user.value = data?.user || null
+  } catch {
+    user.value = null
+  }
+}
+async function logout() {
+  try {
+    await axios.post("/auth/logout")
+  } catch {}
+  user.value = null
+  router.push("/login")
+}
+// run once and on every route change
+watch(() => route.fullPath, fetchMe, { immediate: true })
 </script>

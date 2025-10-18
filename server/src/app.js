@@ -72,7 +72,7 @@ app.use((err, req, res, next) => {
 });
 
 app.use(
-  ['/api/auth','/submissions','/reviewer','/chair','/admin'],
+  ['/auth','/submissions','/reviewer','/chair','/admin'],
   (req, res, next) => {
     res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma','no-cache');
@@ -100,7 +100,7 @@ app.use('/auth', authLimiter);
 
 // Routes
 app.use(health);
-app.use('/api/auth', auth);
+app.use('/auth', auth);
 app.use('/submissions', submissions);
 app.use('/chair', chair);
 app.use('/reviewer', reviewer);

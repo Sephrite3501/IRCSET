@@ -73,6 +73,63 @@ export async function assignEventRole(req, res) {
   }
 }
 
+export async function unassignEventRole(req, res) {
+  const traceId   = `ADM-UNAS-${Math.random().toString(36).slice(2, 9).toUpperCase()}`;
+  const ip        = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const userAgent = req.headers['user-agent'];
+
+  const eventId = Number(req.params.eventId || 0);
+  const userId  = Number(req.body?.user_id || 0);
+  const role    = cleanText(req.body?.role, { max: 32 })?.toLowerCase();
+
+  if (!eventId || !userId || !['author','reviewer','chair'].includes(role)) {
+    await logSecurityEvent({
+      traceId, actorUserId: req.user?.uid, action: 'admin.unassign_event_role.fail',
+      severity: 'warn',
+      details: { reason: 'validation', event_id: eventId || null, user_id: userId || null, role: role || null },
+      ip, userAgent
+    });
+    throw new ApiError(400, 'Invalid input');
+  }
+
+  try {
+    // Return the row so we can distinguish "not found"
+    const del = await appDb.query(
+      `DELETE FROM event_roles
+       WHERE event_id = $1 AND user_id = $2 AND role = $3
+       RETURNING id`,
+      [eventId, userId, role]
+    );
+
+    if (!del.rowCount) {
+      await logSecurityEvent({
+        traceId, actorUserId: req.user.uid, action: 'admin.unassign_event_role.not_found',
+        severity: 'warn',
+        details: { event_id: eventId, user_id: userId, role },
+        ip, userAgent
+      });
+      throw new ApiError(404, 'Assignment not found');
+    }
+
+    await logSecurityEvent({
+      traceId, actorUserId: req.user.uid, action: 'admin.unassign_event_role.ok',
+      severity: 'info',
+      details: { event_id: eventId, user_id: userId, role },
+      ip, userAgent
+    });
+
+    return res.json({ ok: true });
+  } catch (e) {
+    await logSecurityEvent({
+      traceId, actorUserId: req.user?.uid, action: 'admin.unassign_event_role.error',
+      severity: 'error',
+      details: { message: e.message, event_id: eventId, user_id: userId, role },
+      ip, userAgent
+    });
+    throw e; // let your asyncHandler/express error middleware shape the response
+  }
+}
+
 // Admin: list all events
 export async function listEvents(_req, res) {
   const q = await appDb.query(

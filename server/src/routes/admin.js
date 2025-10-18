@@ -35,6 +35,12 @@ r.post('/events/:eventId/assign',
   asyncHandler(Admin.assignEventRole)
 );
 
+r.delete('/events/:eventId/assign',
+  requireAuth, requireAdmin, validateParamId('eventId'),
+  asyncHandler(Admin.unassignEventRole)
+);
+
+
 r.get('/events',
   requireAuth, requireAdmin,
   asyncHandler(Admin.listEvents)

@@ -33,6 +33,7 @@ export default defineConfig({
         target: 'http://ircset_server:3001',
         changeOrigin: true,
         secure: false,
+        rewrite: p => p.replace(/^\/api/, ''),
       },
       // new /assets proxy
       '/assets': {

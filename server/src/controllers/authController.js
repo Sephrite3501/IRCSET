@@ -139,8 +139,14 @@ export async function me(req, res) {
   const u = await findUserByToken(token);
   if (!u) return res.json({ user: null });
 
+  const rolesRes = await appDb.query(
+    `SELECT DISTINCT role FROM event_roles WHERE user_id = $1`,
+    [u.id]
+  );
+  const roles = rolesRes.rows.map(r => r.role);
+
   return res.json({
-    user: { id: u.id, email: u.email, name: u.name, is_admin: u.is_admin, is_active: u.is_active }
+    user: { id: u.id, email: u.email, name: u.name, is_admin: u.is_admin, is_active: u.is_active, roles }
   });
 }
 
