@@ -282,3 +282,113 @@ export async function unassignReviewers(req, res) {
     return res.status(500).json({ error: 'Server error' });
   }
 }
+
+// --- NEW: list events where current user is a chair ---
+// GET /chair/my-events
+export async function listMyEvents(req, res) {
+  const uid = req.user?.uid;
+  if (!uid) return res.status(401).json({ error: 'Not authenticated' });
+
+  const q = await appDb.query(
+    `SELECT e.id, e.name, e.description, e.start_date, e.end_date, e.created_at
+     FROM events e
+     JOIN event_roles er ON er.event_id = e.id
+     WHERE er.user_id = $1 AND er.role = 'chair'
+     ORDER BY e.created_at DESC`,
+    [uid]
+  );
+
+  res.json({ items: q.rows });
+}
+
+// --- NEW: add a reviewer role to this event ---
+// POST /chair/:eventId/reviewers  body: { user_id }
+export async function addEventReviewer(req, res) {
+  const eventId = Number(req.params.eventId || 0);
+  const userId = Number(req.body?.user_id || 0);
+  if (!eventId || !userId) return res.status(400).json({ error: 'Invalid input' });
+
+  // Only chairs of this event may add reviewers (requireEventRole('chair') also enforces)
+  try {
+    const ins = await appDb.query(
+      `INSERT INTO event_roles (event_id, user_id, role)
+       VALUES ($1,$2,'reviewer')
+       ON CONFLICT (event_id, user_id, role) DO NOTHING
+       RETURNING id, event_id, user_id, role`,
+      [eventId, userId]
+    );
+
+    if (!ins.rowCount) {
+      return res.status(400).json({ error: 'User already reviewer for this event' });
+    }
+
+    await logSecurityEvent({
+      traceId: `CHAIR-ADDREV-${Math.random().toString(36).slice(2,8).toUpperCase()}`,
+      actorUserId: req.user.uid,
+      action: 'chair.add_event_reviewer',
+      severity: 'info',
+      entity_type: 'event',
+      entity_id: String(eventId),
+      details: { user_id: userId, role: 'reviewer' }
+    });
+
+    res.json({ ok: true, role: ins.rows[0] });
+  } catch (e) {
+    return res.status(500).json({ error: 'Server error' });
+  }
+}
+
+// --- NEW: remove a reviewer role from this event ---
+// DELETE /chair/:eventId/reviewers   body: { user_id }
+export async function removeEventReviewer(req, res) {
+  const eventId = Number(req.params.eventId || 0);
+  const userId = Number(req.body?.user_id || 0);
+  if (!eventId || !userId) return res.status(400).json({ error: 'Invalid input' });
+
+  const del = await appDb.query(
+    `DELETE FROM event_roles
+     WHERE event_id=$1 AND user_id=$2 AND role='reviewer'`,
+    [eventId, userId]
+  );
+
+  if (!del.rowCount) {
+    return res.status(404).json({ error: 'Reviewer role not found for this event' });
+  }
+
+  await logSecurityEvent({
+    traceId: `CHAIR-REMREV-${Math.random().toString(36).slice(2,8).toUpperCase()}`,
+    actorUserId: req.user.uid,
+    action: 'chair.remove_event_reviewer',
+    severity: 'info',
+    entity_type: 'event',
+    entity_id: String(eventId),
+    details: { user_id: userId, role: 'reviewer' }
+  });
+
+  res.json({ ok: true });
+}
+
+// --- OPTIONAL: search active users to add as reviewers for this event ---
+// GET /chair/:eventId/users?q=...&limit=20
+export async function searchUsersForEvent(req, res) {
+  const eventId = Number(req.params.eventId || 0);
+  const q = String(req.query.q || '').trim().toLowerCase();
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit || '20', 10)));
+  if (!eventId) return res.status(400).json({ error: 'Event ID required' });
+
+  const rows = await appDb.query(
+    `SELECT u.id, u.email, u.name,
+            EXISTS (
+              SELECT 1 FROM event_roles er
+              WHERE er.event_id = $1 AND er.user_id = u.id AND er.role='reviewer'
+            ) AS is_event_reviewer
+     FROM users u
+     WHERE u.is_active = TRUE
+       AND ($2 = '' OR LOWER(u.email) LIKE '%'||$2||'%' OR LOWER(u.name) LIKE '%'||$2||'%')
+     ORDER BY u.name NULLS LAST, u.email
+     LIMIT $3`,
+    [eventId, q, limit]
+  );
+
+  res.json({ items: rows.rows });
+}

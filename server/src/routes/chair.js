@@ -11,6 +11,11 @@ import {
   listAssignments,
   assignReviewers,
   unassignReviewers,
+  // NEW:
+  listMyEvents,
+  addEventReviewer,
+  removeEventReviewer,
+  searchUsersForEvent,
 } from '../controllers/chairController.js';
 
 import {
@@ -81,5 +86,27 @@ r.post('/:eventId/decisions/:submission_id',
 );
 
 
+// Chair: list my events (no :eventId to check)
+r.get('/my-events',
+  requireAuth,            // must be logged in
+  listMyEvents
+);
+
+// Chair: add/remove reviewer role for this event
+r.post('/:eventId/reviewers',
+  requireAuth, requireEventRole('chair'),
+  addEventReviewer
+);
+
+r.delete('/:eventId/reviewers',
+  requireAuth, requireEventRole('chair'),
+  removeEventReviewer
+);
+
+// OPTIONAL: search active users to add as reviewers for this event
+r.get('/:eventId/users',
+  requireAuth, requireEventRole('chair'),
+  searchUsersForEvent
+);
 
 export default r;

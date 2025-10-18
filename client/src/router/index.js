@@ -9,7 +9,8 @@ import Home from '../views/public/Home.vue'
 import Dashboard from '../views/public/Dashboard.vue'
 import Submission from '../views/public/Submission.vue'
 const AdminEvents = () => import('../views/admin/AdminEvents.vue')
-const ChairEventReviewers = () => import('../views/chair/ChairEventReviewers.vue')
+const ChairManageReviewers = () => import('../views/chair/ChairManageReviewers.vue')
+const ChairAssignPapers = () => import('../views/chair/ChairAssignPapers.vue')
 const routes = [
   { path: '/', component: Home },
   { path: '/login', component: Login },
@@ -18,7 +19,8 @@ const routes = [
   { path: '/submission', component: Submission },
   { path: '/admin', redirect: '/admin/events' },                     
   { path: '/admin/events', component: AdminEvents, meta: { requiresAdmin: true } }, 
-  { path: '/chair', component: ChairEventReviewers, meta: { requiresAuth: true } }
+  { path: '/chair/reviewers', component: ChairManageReviewers, meta: { requiresAuth: true } },
+  { path: '/chair/assign', component: ChairAssignPapers, meta: { requiresAuth: true } }
 ]
 
 export const router = createRouter({
