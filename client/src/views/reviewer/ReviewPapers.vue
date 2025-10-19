@@ -1,23 +1,28 @@
 <template>
-  <div class="min-h-screen bg-gray-50 flex flex-col items-center py-12">
-    <h1 class="text-2xl font-semibold text-gray-800 mb-8">Reviewer — Assigned Papers</h1>
+  <div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 flex flex-col items-center">
+    <!-- Page Header -->
+    <h1 class="text-3xl font-bold text-gray-900 mb-10">Reviewer — Assigned Papers</h1>
 
-    <!-- Events list -->
-    <div class="w-11/12 max-w-5xl space-y-6">
+    <!-- Events Container -->
+    <div class="w-11/12 max-w-6xl space-y-6">
       <div
         v-for="event in events"
         :key="event.id"
-        class="bg-white shadow rounded-lg overflow-hidden border border-gray-200 transition"
+        class="bg-white rounded-2xl shadow-md border border-gray-200 overflow-hidden transition hover:shadow-lg"
       >
-        <!-- Event header -->
+        <!-- Event Header -->
         <div
-          class="flex justify-between items-center px-6 py-4 cursor-pointer hover:bg-gray-50"
+          class="flex justify-between items-center px-6 py-5 cursor-pointer bg-gray-50 hover:bg-gray-100 transition"
           @click="toggleEvent(event.id)"
         >
-          <div class="flex items-center gap-3">
-            <h2 class="text-lg font-semibold text-gray-800">
-              {{ event.name }} <span class="text-gray-500">({{ event.year || '—' }})</span>
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900">
+              {{ event.name }}
+              <span class="text-gray-500 font-normal">({{ event.year || "—" }})</span>
             </h2>
+            <p v-if="event.description" class="text-sm text-gray-500 mt-0.5 line-clamp-1">
+              {{ event.description }}
+            </p>
           </div>
 
           <div class="flex items-center gap-3">
@@ -25,7 +30,7 @@
             <span
               class="bg-indigo-100 text-indigo-700 text-xs font-semibold px-2.5 py-1 rounded-full"
             >
-              {{ event.assignmentCount ?? '—' }}
+              {{ event.assignmentCount ?? "—" }} papers
             </span>
 
             <!-- Expand icon -->
@@ -44,21 +49,26 @@
           </div>
         </div>
 
-        <!-- Expanded paper list -->
+        <!-- Expanded Paper List -->
         <transition name="fade">
           <div
             v-if="expandedEvents.has(event.id)"
-            class="border-t border-gray-200 bg-gray-50 px-6 py-4"
+            class="border-t border-gray-200 bg-white px-6 py-5"
           >
-            <div v-if="loadingEventId === event.id" class="text-gray-400 italic">Loading...</div>
-
-            <div v-else-if="getAssignments(event.id).length === 0" class="text-gray-500 italic">
-              No papers assigned.
+            <div v-if="loadingEventId === event.id" class="text-gray-400 italic py-3">
+              Loading papers...
             </div>
 
-            <div v-else class="overflow-x-auto">
+            <div
+              v-else-if="getAssignments(event.id).length === 0"
+              class="text-gray-500 italic py-3 text-center"
+            >
+              No papers assigned for this event.
+            </div>
+
+            <div v-else class="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
               <table class="min-w-full text-sm text-gray-700 border-collapse">
-                <thead class="bg-gray-100 border-b border-gray-200">
+                <thead class="bg-gray-100 border-b border-gray-200 text-gray-700 font-semibold">
                   <tr>
                     <th class="p-3 text-left">Title</th>
                     <th class="p-3 text-left">Status</th>
@@ -72,9 +82,14 @@
                   <tr
                     v-for="paper in getAssignments(event.id)"
                     :key="paper.id"
-                    class="border-b hover:bg-gray-100 transition"
+                    class="border-b hover:bg-slate-50 transition"
                   >
-                    <td class="p-3 font-medium">{{ paper.title }}</td>
+                    <!-- Title -->
+                    <td class="p-3 font-medium text-gray-900">
+                      {{ paper.title }}
+                    </td>
+
+                    <!-- Status -->
                     <td class="p-3">
                       <span
                         :class="[
@@ -89,10 +104,12 @@
                         {{ paper.status }}
                       </span>
                     </td>
+
+                    <!-- Review Status -->
                     <td class="p-3">
                       <span
                         :class="[
-                          'px-2 py-1 rounded text-xs font-semibold',
+                          'px-2 py-1 rounded text-xs font-semibold capitalize',
                           paper.review_status === 'submitted'
                             ? 'bg-green-100 text-green-700'
                             : 'bg-red-100 text-red-700'
@@ -101,18 +118,30 @@
                         {{ paper.review_status || 'pending' }}
                       </span>
                     </td>
-                    <td class="p-3">{{ formatDate(paper.assigned_at) }}</td>
-                    <td class="p-3">{{ formatDate(paper.due_at) }}</td>
+
+                    <!-- Assigned Date -->
+                    <td class="p-3 text-gray-600">{{ formatDate(paper.assigned_at) }}</td>
+
+                    <!-- Due Date -->
+                    <td class="p-3 text-gray-600">{{ formatDate(paper.due_at) }}</td>
+
+                    <!-- Action -->
                     <td class="p-3 text-center">
-                    <RouterLink
+                      <RouterLink
                         :to="`/review/${event.id}/${paper.id}`"
-                        class="font-medium"
-                        :class="paper.review_status === 'submitted'
-                        ? 'text-green-600 hover:text-green-600 cursor-pointer'
-                        : 'text-indigo-600 hover:text-indigo-800'"
-                    >
-                        {{ paper.review_status === 'submitted' ? 'Edit Review' : 'Review' }}
-                    </RouterLink>
+                        class="font-medium inline-block px-3 py-1.5 rounded-md transition"
+                        :class="
+                          paper.review_status === 'submitted'
+                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                            : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                        "
+                      >
+                        {{
+                          paper.review_status === 'submitted'
+                            ? 'Edit Review'
+                            : 'Review'
+                        }}
+                      </RouterLink>
                     </td>
                   </tr>
                 </tbody>
@@ -124,6 +153,7 @@
     </div>
   </div>
 </template>
+
 
 <script setup>
 import { ref, onMounted } from "vue";

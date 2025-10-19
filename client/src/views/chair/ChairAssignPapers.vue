@@ -1,188 +1,369 @@
 <template>
-  <div class="min-h-screen bg-gray-50 py-10">
-    <div class="max-w-7xl mx-auto px-4">
-      <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-semibold text-gray-800">Chair — Assign Reviewers</h1>
-        <button class="text-sm text-red-600 hover:underline" @click="logout">Logout</button>
+  <div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-10">
+    <div class="max-w-7xl mx-auto px-6">
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-10">
+        <h1 class="text-3xl font-bold text-gray-900">
+          Chair — Assign Reviewers
+        </h1>
+        <button
+          class="text-sm text-red-500 font-medium hover:underline"
+          @click="logout"
+        >
+          Logout
+        </button>
       </div>
 
-      <div v-if="errorMsg" class="mb-4 p-3 rounded bg-red-50 border border-red-200 text-red-700">
+      <!-- Error Banner -->
+      <div
+        v-if="errorMsg"
+        class="mb-6 px-4 py-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm"
+      >
         {{ errorMsg }}
       </div>
 
-      <div class="bg-white rounded-xl shadow border border-gray-200 p-6">
-        <h2 class="text-lg font-semibold mb-4">My Events</h2>
-        <div v-if="!events.length" class="text-gray-500">You are not assigned as chair in any event.</div>
+      <!-- Main Container -->
+      <div class="bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
+        <h2 class="text-xl font-semibold text-gray-800 mb-6 border-b pb-2">
+          My Events
+        </h2>
 
-        <!-- One expandable panel per event -->
-        <div v-for="ev in events" :key="ev.id" class="border-t first:border-t-0 py-6">
-          <details :open="openEventId === ev.id" @toggle="onToggleEvent(ev.id, $event)" class="w-full">
-            <summary class="cursor-pointer flex items-center justify-between gap-2">
+        <div v-if="!events.length" class="text-gray-500 italic">
+          You are not assigned as chair in any event.
+        </div>
+
+        <!-- Events -->
+        <div v-for="ev in events" :key="ev.id" class="mb-8">
+          <div
+            class="rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors duration-150 shadow-sm"
+          >
+            <button
+              @click="toggleEvent(ev.id)"
+              class="w-full flex justify-between items-center text-left p-5 focus:outline-none"
+            >
               <div>
-                <div class="font-semibold text-gray-800">{{ ev.name }}</div>
+                <div class="font-semibold text-gray-900 text-lg">
+                  {{ ev.name }}
+                </div>
                 <div class="text-sm text-gray-500">
-                  {{ ev.description || '—' }}
-                  <span v-if="ev.start_date || ev.end_date" class="ml-2">
-                    ({{ ev.start_date || '…' }} → {{ ev.end_date || '…' }})
+                  {{ ev.description || "—" }}
+                  <span v-if="ev.start_date || ev.end_date" class="ml-1">
+                    ({{ ev.start_date || "…" }} → {{ ev.end_date || "…" }})
                   </span>
                 </div>
               </div>
-              <span class="text-xs text-gray-500 px-2 py-1 rounded bg-gray-100 border">
-                {{ (submissionsByEvent[ev.id]?.length || 0) }} submission(s)
-              </span>
-            </summary>
-
-            <div class="mt-4 space-y-6">
-              <!-- Per submission row -->
               <div
-                v-for="sub in (submissionsByEvent[ev.id] || [])"
-                :key="sub.id"
-                class="rounded-lg border bg-gray-50 p-4"
+                class="text-xs text-gray-600 bg-white border rounded-md px-3 py-1 shadow-sm"
               >
-                <div class="flex items-start justify-between gap-4">
-                  <div>
-                    <div class="font-medium text-gray-900">
-                      {{ sub.title }}
-                    </div>
-                    <div class="text-xs text-gray-500 mt-1">
-                      Status: <b class="mr-3">{{ sub.status }}</b>
-                      Assigned: <b class="mr-3">{{ sub.n_assigned }}</b>
-                      Reviews submitted: <b class="mr-3">{{ sub.n_submitted }}</b>
-                      Avg score: <b>{{ formatScore(sub.avg_score) }}</b>
-                    </div>
-                  </div>
-                </div>
+                {{ (submissionsByEvent[ev.id]?.length || 0) }} submission(s)
+              </div>
+            </button>
 
-                <!-- Current assignments list -->
-                <div class="mt-3">
-                  <h4 class="text-sm font-semibold text-gray-700">Current Reviewers</h4>
-                  <div class="border rounded bg-white mt-2">
-                    <div v-if="!assignmentsBySub[sub.id]?.length" class="p-3 text-sm text-gray-500">
-                      None assigned
+            <!-- Expanded Panel -->
+            <transition name="fade">
+              <div
+                v-if="openEventId === ev.id"
+                class="px-6 pb-8 bg-white border-t border-gray-200 rounded-b-xl"
+              >
+                <div
+                  v-if="(submissionsByEvent[ev.id] || []).length"
+                  class="divide-y divide-gray-200"
+                >
+                  <!-- Submissions -->
+                  <div
+                    v-for="sub in submissionsByEvent[ev.id]"
+                    :key="sub.id"
+                    class="py-6"
+                  >
+                    <!-- Paper Header -->
+                    <div
+                      class="flex flex-col md:flex-row md:items-center md:justify-between gap-2"
+                    >
+                      <div>
+                        <h3 class="font-semibold text-gray-900">
+                          {{ sub.title }}
+                        </h3>
+                        <p class="text-xs text-gray-500 mt-1">
+                          <b>Status:</b> {{ sub.status }}
+                          • <b>Assigned:</b> {{ sub.n_assigned }}
+                          • <b>Reviews:</b> {{ sub.n_submitted }}
+                          • <b>Avg Score:</b>
+                          <span class="text-indigo-600">
+                            {{ formatScore(sub.avg_score) }}
+                          </span>
+                        </p>
+                      </div>
                     </div>
-                    <div v-else class="divide-y">
+
+                    <!-- Current Reviewers -->
+                    <div class="mt-4">
+                      <h4
+                        class="text-sm font-semibold text-gray-700 mb-1 border-b border-gray-200 pb-1"
+                      >
+                        Current Reviewers
+                      </h4>
                       <div
-                        v-for="a in assignmentsBySub[sub.id]"
-                        :key="a.reviewer_id"
-                        class="px-3 py-2"
+                        class="bg-slate-50 border border-gray-200 rounded-lg overflow-hidden"
                       >
-                        <div class="flex items-center justify-between">
-                          <div class="text-sm">
-                            <div>{{ a.name || a.email }}</div>
-                            <div class="text-xs text-gray-500">
-                              Review status: {{ a.review_status || '—' }}
-                              <span v-if="a.due_at"> • due {{ fmt(a.due_at) }}</span>
-                            </div>
-                          </div>
-                          <div class="flex items-center gap-2">
-                            <button
-                              class="text-xs text-indigo-600 hover:underline"
-                              @click="toggleReviewDropdown(sub.id, a.reviewer_id)"
-                            >
-                              {{ expandedReviews[sub.id]?.has(a.reviewer_id) ? 'Hide' : 'Show' }} Review
-                            </button>
-                            <button
-                              class="text-xs text-red-600 hover:underline"
-                              :disabled="loading"
-                              @click="unassignOne(ev.id, sub.id, a.reviewer_id)"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        </div>
-
-                        <!-- Dropdown content -->
-                        <transition name="fade">
-                          <div
-                            v-if="expandedReviews[sub.id]?.has(a.reviewer_id)"
-                            class="bg-gray-50 border-t p-3 text-sm mt-2 rounded"
-                          >
-                            <div v-if="!reviewsBySub[sub.id]?.[a.reviewer_id]">
-                              <button
-                                class="text-xs text-indigo-600 underline"
-                                @click="loadReview(ev.id, sub.id, a.reviewer_id)"
-                              >
-                                Load review
-                              </button>
-                            </div>
-                            <div v-else>
-                              <p><b>Technical:</b> {{ reviewsBySub[sub.id][a.reviewer_id].score_technical }}</p>
-                              <p><b>Relevance:</b> {{ reviewsBySub[sub.id][a.reviewer_id].score_relevance }}</p>
-                              <p><b>Innovation:</b> {{ reviewsBySub[sub.id][a.reviewer_id].score_innovation }}</p>
-                              <p><b>Writing:</b> {{ reviewsBySub[sub.id][a.reviewer_id].score_writing }}</p>
-                              <p><b>Overall:</b> {{ reviewsBySub[sub.id][a.reviewer_id].score_overall }}</p>
-
-                              <p class="mt-2"><b>Comments (Author):</b><br />{{ reviewsBySub[sub.id][a.reviewer_id].comments_for_author }}</p>
-                              <p class="mt-2"><b>Comments (Committee):</b><br />{{ reviewsBySub[sub.id][a.reviewer_id].comments_committee }}</p>
-                            </div>
-                          </div>
-                        </transition>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Assign reviewers -->
-                <div class="mt-4">
-                  <h4 class="text-sm font-semibold text-gray-700">Add Reviewers</h4>
-
-                  <!-- Search over the event's reviewer pool (client-side filter) -->
-                  <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
-                    <div class="md:col-span-2">
-                      <input
-                        v-model="searchQ"
-                        placeholder="Type to filter reviewers by name/email…"
-                        class="w-full border rounded px-3 py-2"
-                      />
-                      <div class="mt-2 max-h-40 overflow-auto bg-white border rounded">
-                        <button
-                          v-for="u in filteredReviewerPool(ev.id, sub.id)"
-                          :key="u.id"
-                          class="w-full text-left px-3 py-2 hover:bg-gray-50 border-b last:border-0"
-                          :class="{ 'bg-indigo-50': selectedToAdd.has(u.id) }"
-                          @click="toggleSelect(u.id)"
-                        >
-                          <div class="text-sm">{{ u.name || u.email }}</div>
-                          <div class="text-xs text-gray-500">{{ u.email }}</div>
-                        </button>
                         <div
-                          v-if="searchQ && filteredReviewerPool(ev.id, sub.id).length === 0"
-                          class="p-2 text-sm text-gray-500"
+                          v-if="!assignmentsBySub[sub.id]?.length"
+                          class="p-4 text-gray-500 text-sm italic"
                         >
-                          No matches in this event's reviewer pool
+                          None assigned yet.
+                        </div>
+
+                        <div v-else class="divide-y">
+                          <div
+                            v-for="a in assignmentsBySub[sub.id]"
+                            :key="a.reviewer_id"
+                            class="px-4 py-3 bg-white hover:bg-slate-50 transition-colors"
+                          >
+                            <div
+                              class="flex flex-col md:flex-row md:items-center md:justify-between gap-2"
+                            >
+                              <div>
+                                <p class="text-sm font-medium text-gray-800">
+                                  {{ a.name || a.email }}
+                                </p>
+                                <p class="text-xs text-gray-500">
+                                  Review status: {{ a.review_status || "—" }}
+                                  <span v-if="a.due_at">
+                                    • due {{ fmt(a.due_at) }}
+                                  </span>
+                                </p>
+                              </div>
+
+                              <div class="flex gap-3 text-xs">
+                                <button
+                                  class="text-indigo-600 hover:underline"
+                                  @click="
+                                    toggleReviewDropdown(sub.id, a.reviewer_id)
+                                  "
+                                >
+                                  {{
+                                    expandedReviews[sub.id]?.has(a.reviewer_id)
+                                      ? "Hide"
+                                      : "Show"
+                                  }}
+                                  Review
+                                </button>
+                                <button
+                                  class="text-red-500 hover:underline"
+                                  :disabled="loading"
+                                  @click="
+                                    unassignOne(ev.id, sub.id, a.reviewer_id)
+                                  "
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+
+                            <!-- Review Dropdown -->
+                            <transition name="fade">
+                              <div
+                                v-if="
+                                  expandedReviews[sub.id]?.has(a.reviewer_id)
+                                "
+                                class="mt-4 p-4 bg-slate-50 border border-gray-200 rounded-lg"
+                              >
+                                <div
+                                  v-if="
+                                    !reviewsBySub[sub.id]?.[a.reviewer_id]
+                                  "
+                                >
+                                  <button
+                                    class="text-xs text-indigo-600 underline"
+                                    @click="
+                                      loadReview(ev.id, sub.id, a.reviewer_id)
+                                    "
+                                  >
+                                    Load review
+                                  </button>
+                                </div>
+
+                                <div
+                                  v-else
+                                  class="bg-white border rounded-lg p-5 mt-2 shadow-sm"
+                                >
+                                  <div
+                                    class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5"
+                                  >
+                                    <div
+                                      v-for="metric in [
+                                        'Technical',
+                                        'Relevance',
+                                        'Innovation',
+                                        'Writing',
+                                      ]"
+                                      :key="metric"
+                                      class="text-center border rounded-lg p-3 bg-slate-50"
+                                    >
+                                      <p
+                                        class="text-xs text-gray-500 uppercase tracking-wide"
+                                      >
+                                        {{ metric }}
+                                      </p>
+                                      <p
+                                        class="text-lg font-semibold text-gray-800"
+                                      >
+                                        {{
+                                          reviewsBySub[sub.id][a.reviewer_id][
+                                            'score_' + metric.toLowerCase()
+                                          ] ?? "—"
+                                        }}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div class="text-center mb-5">
+                                    <p
+                                      class="text-sm font-medium text-gray-600"
+                                    >
+                                      Overall Score
+                                    </p>
+                                    <p
+                                      class="text-3xl font-bold text-indigo-700"
+                                    >
+                                      {{
+                                        reviewsBySub[sub.id][a.reviewer_id]
+                                          .score_overall ?? "—"
+                                      }}
+                                    </p>
+                                  </div>
+
+                                  <div
+                                    class="grid grid-cols-1 md:grid-cols-2 gap-5"
+                                  >
+                                    <div>
+                                      <label
+                                        class="text-sm font-semibold text-gray-700 block mb-1"
+                                      >
+                                        Comments for Author
+                                      </label>
+                                      <div
+                                        class="border border-gray-200 bg-gray-50 rounded-lg p-3 text-sm text-gray-800 whitespace-pre-line h-28 overflow-y-auto"
+                                      >
+                                        {{
+                                          reviewsBySub[sub.id][a.reviewer_id]
+                                            .comments_for_author || "—"
+                                        }}
+                                      </div>
+                                    </div>
+
+                                    <div>
+                                      <label
+                                        class="text-sm font-semibold text-gray-700 block mb-1"
+                                      >
+                                        Comments for Committee
+                                      </label>
+                                      <div
+                                        class="border border-gray-200 bg-gray-50 rounded-lg p-3 text-sm text-gray-800 whitespace-pre-line h-28 overflow-y-auto"
+                                      >
+                                        {{
+                                          reviewsBySub[sub.id][a.reviewer_id]
+                                            .comments_committee || "—"
+                                        }}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </transition>
+                          </div>
                         </div>
                       </div>
                     </div>
 
-                    <div>
-                      <label class="text-xs text-gray-600 block mb-1">Optional due date</label>
-                      <input
-                        v-model="dueDate"
-                        type="date"
-                        class="border rounded px-3 py-2 w-full"
-                      />
-                      <button
-                        class="mt-3 px-3 py-2 rounded bg-indigo-600 text-white w-full disabled:opacity-60"
-                        :disabled="!selectedToAdd.size || loading"
-                        @click="assignSelected(ev.id, sub.id)"
+                    <!-- Assign Reviewers -->
+                    <div class="mt-6">
+                      <h4 class="text-sm font-semibold text-gray-700 mb-1">
+                        Add Reviewers
+                      </h4>
+
+                      <div
+                        class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2 items-start"
                       >
-                        {{ loading ? 'Assigning…' : 'Assign selected' }}
-                      </button>
+                        <!-- Search -->
+                        <div class="md:col-span-2">
+                          <input
+                            v-model="searchQ"
+                            placeholder="Search reviewers by name or email..."
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                          />
+                          <div
+                            class="mt-2 max-h-48 overflow-auto bg-white border border-gray-200 rounded-lg shadow-sm"
+                          >
+                            <button
+                              v-for="u in filteredReviewerPool(ev.id, sub.id)"
+                              :key="u.id"
+                              class="w-full text-left px-4 py-2 text-sm hover:bg-indigo-50 transition border-b last:border-0"
+                              :class="{
+                                'bg-indigo-100': selectedToAdd.has(u.id),
+                              }"
+                              @click="toggleSelect(u.id)"
+                            >
+                              <div class="font-medium">
+                                {{ u.name || u.email }}
+                              </div>
+                              <div class="text-xs text-gray-500">
+                                {{ u.email }}
+                              </div>
+                            </button>
+
+                            <div
+                              v-if="
+                                searchQ &&
+                                filteredReviewerPool(ev.id, sub.id).length ===
+                                  0
+                              "
+                              class="p-3 text-sm text-gray-500 italic"
+                            >
+                              No matching reviewers found.
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- Assign Button -->
+                        <div>
+                          <label
+                            class="text-xs text-gray-600 block mb-1 font-medium"
+                          >
+                            Optional due date
+                          </label>
+                          <input
+                            v-model="dueDate"
+                            type="date"
+                            class="border border-gray-300 rounded-lg px-3 py-2 w-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                          />
+                          <button
+                            class="mt-3 px-4 py-2 rounded-md bg-indigo-600 text-white text-sm w-full font-medium hover:bg-indigo-700 disabled:opacity-60 transition"
+                            :disabled="!selectedToAdd.size || loading"
+                            @click="assignSelected(ev.id, sub.id)"
+                          >
+                            {{ loading ? "Assigning…" : "Assign Selected" }}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <div v-if="(submissionsByEvent[ev.id] || []).length === 0" class="text-gray-500">
-                No submissions in this event yet.
+                <p
+                  v-else
+                  class="text-gray-500 italic mt-6 text-sm text-center border-t pt-4"
+                >
+                  No submissions in this event yet.
+                </p>
               </div>
-            </div>
-          </details>
+            </transition>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </template>
+
 
 <script setup>
 import axios from 'axios'

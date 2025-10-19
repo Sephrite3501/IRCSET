@@ -6,3 +6,64 @@
   --tw-bg-opacity: 1;
   background-color: rgb(17 24 39 / var(--tw-bg-opacity));
 }
+
+@layer components {
+  /* === Transitions & Animations === */
+  .fade-enter-active, .fade-leave-active {
+    @apply transition-opacity duration-200 ease-out;
+  }
+  .fade-enter-from, .fade-leave-to {
+    @apply opacity-0;
+  }
+
+  /* === Card Styles === */
+  .card {
+    @apply bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200;
+  }
+
+  /* === Section Container === */
+  .section {
+    @apply max-w-7xl mx-auto px-6 py-8;
+  }
+
+  /* === Titles === */
+  .title-main {
+    @apply text-3xl font-bold text-gray-900 mb-6;
+  }
+  .title-sub {
+    @apply text-xl font-semibold text-gray-800 mb-4;
+  }
+
+  /* === Buttons === */
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-md font-medium transition duration-200;
+  }
+  .btn-primary {
+    @apply bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-400;
+  }
+  .btn-danger {
+    @apply bg-red-500 text-white hover:bg-red-600 focus:ring-2 focus:ring-red-400;
+  }
+  .btn-outline {
+    @apply border border-gray-300 text-gray-700 hover:bg-gray-100;
+  }
+
+  /* === Inputs === */
+  .input {
+    @apply border border-gray-300 rounded-md px-3 py-2 w-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition;
+  }
+
+  /* === Card Hover Lift === */
+  .hover-lift {
+    @apply transform transition-transform duration-200 hover:-translate-y-1;
+  }
+
+  /* === Table Styling === */
+  .table-clean th {
+    @apply bg-gray-100 text-gray-700 font-semibold;
+  }
+  .table-clean th,
+  .table-clean td {
+    @apply border border-gray-200 px-3 py-2 text-sm;
+  }
+}

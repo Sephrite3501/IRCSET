@@ -1,61 +1,117 @@
 <template>
-  <div class="min-h-screen bg-gray-50 py-10">
-    <div class="max-w-5xl mx-auto px-4">
-      <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-semibold text-gray-800">Chair — Event Reviewers</h1>
-        <button @click="logout" class="text-sm text-red-600 hover:underline">Logout</button>
+  <div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12">
+    <div class="max-w-5xl mx-auto px-6">
+      <!-- Header -->
+      <div class="flex justify-between items-center mb-10">
+        <h1 class="text-3xl font-bold text-gray-900">Chair — Event Reviewers</h1>
+        <button
+          @click="logout"
+          class="text-sm text-red-500 hover:underline font-medium"
+        >
+          Logout
+        </button>
       </div>
 
-      <div v-if="error" class="p-3 bg-red-100 text-red-800 rounded mb-4">{{ error }}</div>
+      <!-- Error -->
+      <div
+        v-if="error"
+        class="p-4 mb-6 bg-red-50 text-red-700 border border-red-200 rounded-md"
+      >
+        {{ error }}
+      </div>
 
-      <div v-if="!events.length" class="text-gray-500">No events assigned to you.</div>
+      <!-- No Events -->
+      <p v-if="!events.length" class="text-gray-500 italic">
+        No events assigned to you.
+      </p>
 
-      <div v-for="ev in events" :key="ev.id" class="border rounded-lg bg-white shadow mb-6 p-4">
-        <h2 class="text-lg font-semibold">{{ ev.name }}</h2>
-        <p class="text-sm text-gray-500 mb-3">{{ ev.description }}</p>
+      <!-- Events List -->
+      <div
+        v-for="ev in events"
+        :key="ev.id"
+        class="card hover-lift mb-10 p-6"
+      >
+        <!-- Event Info -->
+        <div class="flex justify-between items-start mb-5">
+          <div>
+            <h2 class="text-xl font-semibold text-gray-900">{{ ev.name }}</h2>
+            <p class="text-sm text-gray-600 mt-1">{{ ev.description || "—" }}</p>
+          </div>
+          <span
+            class="text-xs bg-indigo-50 text-indigo-700 px-2 py-1 rounded border border-indigo-200"
+          >
+            {{ reviewersByEvent[ev.id]?.length || 0 }} reviewer(s)
+          </span>
+        </div>
 
-        <h3 class="font-medium mb-2">Current Reviewers</h3>
-        <ul class="border rounded mb-3 max-h-40 overflow-auto">
+        <!-- Current Reviewers -->
+        <h3 class="text-sm font-semibold text-gray-700 mb-2">
+          Current Reviewers
+        </h3>
+        <ul
+          class="border border-gray-200 rounded-lg bg-gray-50 max-h-48 overflow-auto divide-y divide-gray-200 mb-5"
+        >
           <li
             v-for="r in reviewersByEvent[ev.id] || []"
             :key="r.id"
-            class="flex justify-between items-center border-b px-3 py-2 last:border-0"
+            class="flex justify-between items-center px-4 py-2 bg-white hover:bg-slate-50 transition-colors"
           >
-            <span>{{ r.name || r.email }}</span>
-            <button class="text-xs text-red-600 hover:underline" @click="removeReviewer(ev.id, r.id)">Remove</button>
+            <span class="text-sm text-gray-800">{{ r.name || r.email }}</span>
+            <button
+              class="text-xs text-red-500 hover:text-red-700 font-medium"
+              @click="removeReviewer(ev.id, r.id)"
+            >
+              Remove
+            </button>
           </li>
-          <li v-if="!reviewersByEvent[ev.id]?.length" class="px-3 py-2 text-sm text-gray-500">None yet</li>
+          <li
+            v-if="!reviewersByEvent[ev.id]?.length"
+            class="px-4 py-2 text-sm text-gray-500 italic"
+          >
+            None yet
+          </li>
         </ul>
 
+        <!-- Search Bar -->
         <div class="flex gap-2 items-center">
           <input
             v-model="searchQ"
-            placeholder="Search users by email/name…"
-            class="border rounded px-3 py-2 w-full"
+            placeholder="Search users by email or name…"
+            class="input"
           />
-          <button
-            class="bg-indigo-600 text-white px-3 py-2 rounded"
-            @click="searchUsers(ev.id)"
-          >
+          <button class="btn btn-primary" @click="searchUsers(ev.id)">
             Search
           </button>
         </div>
 
-        <div class="mt-2 max-h-40 overflow-auto border rounded bg-white">
+        <!-- Search Results -->
+        <div
+          class="mt-3 max-h-48 overflow-auto border border-gray-200 rounded-lg bg-white shadow-sm divide-y divide-gray-100"
+        >
           <button
             v-for="u in userResults"
             :key="u.id"
-            class="block w-full text-left px-3 py-2 hover:bg-gray-100 border-b last:border-0"
+            class="w-full text-left px-4 py-2 hover:bg-indigo-50 transition-colors text-sm"
             @click="addReviewer(ev.id, u.id)"
           >
-            {{ u.name || u.email }} <span class="text-xs text-gray-500">{{ u.email }}</span>
+            <div class="font-medium text-gray-800">
+              {{ u.name || u.email }}
+            </div>
+            <div class="text-xs text-gray-500">{{ u.email }}</div>
           </button>
-          <div v-if="userResults.length === 0 && searchQ" class="p-2 text-sm text-gray-500">No results</div>
+
+          <div
+            v-if="userResults.length === 0 && searchQ"
+            class="p-3 text-sm text-gray-500 italic"
+          >
+            No matching users found.
+          </div>
         </div>
       </div>
     </div>
   </div>
 </template>
+
 
 <script setup>
 import axios from 'axios'

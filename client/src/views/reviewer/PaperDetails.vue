@@ -1,143 +1,156 @@
 <template>
-  <div class="min-h-screen bg-gray-50 py-10 px-4 flex justify-center">
-    <div class="w-full max-w-5xl bg-white shadow rounded-lg p-8">
-      <!-- Header -->
-      <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-semibold text-gray-800">
-          Review — {{ paper?.title || "Loading..." }}
-        </h1>
-        <RouterLink
-          to="/tasks/assigned"
-          class="text-indigo-600 hover:text-indigo-800 font-medium"
-        >
-          ← Back to Papers
-        </RouterLink>
-      </div>
-
-      <!-- Paper Info -->
-      <div v-if="paper" class="space-y-4 mb-8">
-        <h2 class="text-xl font-semibold text-gray-900">{{ paper.title }}</h2>
-
-        <div class="flex flex-wrap gap-4 text-sm text-gray-600">
-          <p>
-            <strong>Event:</strong> {{ paper.event_name || `Event #${eventId}` }}
-          </p>
-          <p>
-            <strong>Status:</strong>
-            <span
-              :class="[
-                'px-2 py-0.5 rounded text-xs font-semibold',
-                paper.status === 'submitted'
-                  ? 'bg-blue-100 text-blue-700'
-                  : paper.status === 'under_review'
-                  ? 'bg-yellow-100 text-yellow-700'
-                  : 'bg-gray-100 text-gray-700'
-              ]"
+  <div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-10 px-6">
+    <div class="max-w-7xl mx-auto bg-white shadow-xl rounded-2xl overflow-hidden flex flex-col md:flex-row">
+      <!-- LEFT: PDF Preview -->
+      <div class="md:w-2/3 bg-slate-50 border-r border-slate-200 flex flex-col">
+        <div class="p-5 border-b bg-white">
+          <h2 class="text-lg font-semibold text-gray-800 flex items-center justify-between">
+            Paper Preview
+            <a
+              v-if="paper?.id && eventId"
+              :href="`${API_BASE}/events/${eventId}/submissions/${paper.id}/initial.pdf?dl=1`"
+              class="text-sm font-medium text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
             >
-              {{ paper.status }}
-            </span>
-          </p>
+              ⬇ Download PDF
+            </a>
+          </h2>
         </div>
 
-        <!-- Authors -->
-        <div v-if="paper.authors?.length">
-          <h3 class="text-sm font-semibold text-gray-700 mb-1">Authors:</h3>
-          <ul class="list-disc list-inside text-gray-700 text-sm">
-            <li v-for="(author, i) in paper.authors" :key="i">
-              {{ author.name }} —
-              <span class="text-gray-500">{{ author.email }}</span>
-            </li>
-          </ul>
+        <div class="flex-1 flex items-center justify-center p-4">
+          <iframe
+            v-if="paper?.id && eventId"
+            :src="`${API_BASE}/events/${eventId}/submissions/${paper.id}/initial.pdf`"
+            class="w-full h-[85vh] border rounded-lg"
+          ></iframe>
+          <p v-else class="text-gray-500 italic">No PDF uploaded.</p>
         </div>
-
-        <!-- Abstract -->
-        <div v-if="paper.abstract">
-          <h3 class="text-sm font-semibold text-gray-700 mb-1">Abstract:</h3>
-          <p class="text-gray-800 leading-relaxed">{{ paper.abstract }}</p>
-        </div>
-
-        <!-- Keywords -->
-        <div v-if="paper.keywords">
-          <h3 class="text-sm font-semibold text-gray-700 mb-1">Keywords:</h3>
-          <p class="text-gray-700 text-sm">{{ paper.keywords }}</p>
-        </div>
-
-        <!-- PDF Viewer -->
-            <div class="mt-6">
-            <h3 class="text-sm font-semibold text-gray-700 mb-2">Uploaded Paper (PDF):</h3>
-
-            <div class="border rounded-lg bg-gray-100 p-4 text-center">
-                <iframe
-                v-if="paper.id && eventId"
-                :src="`${API_BASE}/events/${eventId}/submissions/${paper.id}/initial.pdf`"
-                class="w-full h-[80vh] rounded"
-                ></iframe>
-
-                <p v-else class="text-gray-500 italic">No PDF uploaded.</p>
-
-                <a
-                v-if="paper.id && eventId"
-                :href="`${API_BASE}/events/${eventId}/submissions/${paper.id}/initial.pdf?dl=1`"
-                class="inline-block mt-3 text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-                >
-                ⬇ Download PDF
-                </a>
-            </div>
-            </div>
       </div>
 
-      <div v-else class="text-gray-500 italic text-center mt-10">
-        Loading paper details...
-      </div>
+      <!-- RIGHT: Review Information + Form -->
+      <div class="md:w-1/3 p-8 overflow-y-auto">
+        <!-- Header -->
+        <div class="flex items-start justify-between mb-6">
+          <h1 class="text-2xl font-bold text-gray-900 leading-snug">
+            Review — <span class="text-indigo-600">{{ paper?.title || "Loading..." }}</span>
+          </h1>
+          <RouterLink
+            to="/tasks/assigned"
+            class="text-sm text-indigo-600 hover:text-indigo-800 mt-1"
+          >
+            ← Back
+          </RouterLink>
+        </div>
 
-      <!-- Review Form -->
-      <div class="border-t pt-6 mt-6">
-        <h2 class="text-lg font-semibold text-gray-800 mb-4">
-          Submit Your Review
-        </h2>
+        <!-- Paper Meta Info -->
+        <div v-if="paper" class="space-y-4 mb-8">
+          <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+            <p class="text-sm text-gray-700">
+              <strong>Event:</strong> {{ paper.event_name || `Event #${eventId}` }}
+            </p>
+            <p class="text-sm text-gray-700">
+              <strong>Status:</strong>
+              <span
+                :class="[ 
+                  'px-2 py-0.5 rounded text-xs font-semibold',
+                  paper.status === 'submitted'
+                    ? 'bg-blue-100 text-blue-700'
+                    : paper.status === 'under_review'
+                    ? 'bg-yellow-100 text-yellow-700'
+                    : 'bg-gray-100 text-gray-700'
+                ]"
+              >
+                {{ paper.status }}
+              </span>
+            </p>
+          </div>
 
-            <form @submit.prevent="submitReview" class="space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Technical Merit (1–5)</label>
-                <input v-model.number="scoreTechnical" type="number" min="1" max="5" class="border border-gray-300 rounded-md w-24 p-1 text-center focus:ring-2 focus:ring-indigo-400" required />
-                </div>
-                <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Relevance (1–5)</label>
-                <input v-model.number="scoreRelevance" type="number" min="1" max="5" class="border border-gray-300 rounded-md w-24 p-1 text-center focus:ring-2 focus:ring-indigo-400" required />
-                </div>
-                <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Innovation (1–5)</label>
-                <input v-model.number="scoreInnovation" type="number" min="1" max="5" class="border border-gray-300 rounded-md w-24 p-1 text-center focus:ring-2 focus:ring-indigo-400" required />
-                </div>
-                <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Writing Quality (1–5)</label>
-                <input v-model.number="scoreWriting" type="number" min="1" max="5" class="border border-gray-300 rounded-md w-24 p-1 text-center focus:ring-2 focus:ring-indigo-400" required />
-                </div>
+            <!-- Authors -->
+            <div
+            v-if="authorsList.length"
+            class="bg-slate-50 border border-slate-200 rounded-lg p-3"
+            >
+            <h3 class="text-xs font-semibold text-gray-600 uppercase mb-1">Authors</h3>
+            <ul class="text-sm text-gray-800 space-y-1">
+                <li v-for="(a, i) in authorsList" :key="i">
+                {{ a.name }}
+                <template v-if="a.email"> — <span class="text-gray-500">{{ a.email }}</span></template>
+                </li>
+            </ul>
+            </div>
+
+          <div v-if="paper.keywords" class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+            <h3 class="text-xs font-semibold text-gray-600 uppercase mb-1">Keywords</h3>
+            <div class="flex flex-wrap gap-2">
+              <span
+                v-for="(kw, i) in paper.keywords.split(',')"
+                :key="i"
+                class="bg-indigo-100 text-indigo-700 text-xs font-medium px-2 py-1 rounded-full"
+              >
+                {{ kw.trim() }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Review Form -->
+        <div class="border-t pt-6 mt-6">
+          <h2 class="text-lg font-semibold text-gray-800 mb-4">Submit Review</h2>
+
+          <form @submit.prevent="submitReview" class="space-y-5">
+            <!-- Scores -->
+            <div class="grid grid-cols-2 gap-3">
+              <div v-for="item in scoreFields" :key="item.key" class="flex flex-col">
+                <label class="text-sm font-medium text-gray-700 mb-1">{{ item.label }}</label>
+                <input
+                  v-model.number="item.ref.value"
+                  type="number"
+                  min="1"
+                  max="5"
+                  class="border border-gray-300 rounded-md w-20 text-center p-1 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 mx-auto"
+                  required
+                />
+              </div>
+            </div>
+
+            <!-- Comments -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Comments for Author</label>
+              <textarea
+                v-model="commentsAuthor"
+                rows="3"
+                placeholder="Provide constructive feedback..."
+                class="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 resize-none"
+                required
+              ></textarea>
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Comments for Author</label>
-                <textarea v-model="commentsAuthor" rows="3" placeholder="Feedback for the author..." class="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-400" required></textarea>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Comments for Committee</label>
+              <textarea
+                v-model="commentsCommittee"
+                rows="3"
+                placeholder="Private notes for the committee..."
+                class="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 resize-none"
+              ></textarea>
             </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Comments for Committee</label>
-                <textarea v-model="commentsCommittee" rows="3" placeholder="Private notes for the committee..." class="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-400"></textarea>
-            </div>
+            <button
+              type="submit"
+              :disabled="submitting"
+              class="w-full bg-indigo-600 text-white font-semibold py-2 rounded-md hover:bg-indigo-700 transition disabled:opacity-50"
+            >
+              {{
+                submitting
+                  ? (paper?.review_status === "submitted" ? "Updating..." : "Submitting...")
+                  : (paper?.review_status === "submitted" ? "Edit Review" : "Submit Review")
+              }}
+            </button>
 
-                <button
-                type="submit"
-                :disabled="submitting"
-                class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition disabled:opacity-50"
-                >
-                {{ submitting
-                    ? (paper?.review_status === "submitted" ? "Updating..." : "Submitting...")
-                    : (paper?.review_status === "submitted" ? "Edit Review" : "Submit Review") }}
-                </button>
-
-            <p v-if="message" :class="messageClass" class="text-sm mt-2">{{ message }}</p>
-            </form>
+            <p v-if="message" :class="messageClass" class="text-sm mt-2">
+              {{ message }}
+            </p>
+          </form>
+        </div>
       </div>
     </div>
   </div>
@@ -150,7 +163,6 @@ import axios from "axios";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
-// ----- State -----
 const route = useRoute();
 const eventId = route.params.eventId as string;
 const paperId = route.params.paperId as string;
@@ -168,9 +180,9 @@ interface Paper {
   pdf_path?: string;
   status: string;
   event_name: string;
-  authors?: Author[];
-  review_status?: string; // 👈 Add this
-  existing_review?: any;  // 👈 Add this
+  authors?: Author[] | string;
+  review_status?: string;
+  existing_review?: any;
 }
 
 const paper = ref<Paper | null>(null);
@@ -186,17 +198,22 @@ const submitting = ref(false);
 const message = ref("");
 const messageClass = ref("");
 
-// ----- Lifecycle -----
+// 🔧 Added: Score field metadata for rendering
+const scoreFields = [
+  { key: "technical", label: "Technical (1–5)", ref: scoreTechnical },
+  { key: "relevance", label: "Relevance (1–5)", ref: scoreRelevance },
+  { key: "innovation", label: "Innovation (1–5)", ref: scoreInnovation },
+  { key: "writing", label: "Writing (1–5)", ref: scoreWriting },
+];
+
 onMounted(async () => {
   try {
     const res = await axios.get(`/reviewer/events/${eventId}/papers/${paperId}/review`, {
       withCredentials: true,
     });
-    console.log("Paper details response:", res.data);
 
     paper.value = res.data.submission || null;
 
-    // 👇 If there's an existing review, prefill form
     if (paper.value?.existing_review) {
       const r = paper.value.existing_review;
       scoreTechnical.value = r.score_technical ?? 1;
@@ -211,19 +228,16 @@ onMounted(async () => {
   }
 });
 
-// ----- Computed -----
 const pdfUrl = computed(() => {
   if (!paper.value?.pdf_path) return "";
   return `/uploads/${paper.value.pdf_path.replace(/^uploads[\\/]/, "").replace(/\\/g, "/")}`;
 });
 
-// ----- Methods -----
 async function submitReview() {
   submitting.value = true;
   message.value = "";
 
   try {
-    // Validate locally first
     const scores = [scoreTechnical.value, scoreRelevance.value, scoreInnovation.value, scoreWriting.value];
     if (!scores.every((n) => Number.isInteger(n) && n >= 1 && n <= 5)) {
       message.value = "⚠️ All scores must be integers between 1 and 5.";
@@ -251,13 +265,12 @@ async function submitReview() {
         : "✅ Review submitted successfully!";
       messageClass.value = "text-green-600";
 
-      // Mark as submitted locally
       if (paper.value) paper.value.review_status = "submitted";
     } else {
       message.value = "❌ Submission failed.";
       messageClass.value = "text-red-600";
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error("Submit error:", err.response?.data || err.message);
     message.value = `❌ ${err.response?.data?.error || "Network or server error."}`;
     messageClass.value = "text-red-600";
@@ -265,4 +278,32 @@ async function submitReview() {
     submitting.value = false;
   }
 }
+
+const authorsList = computed(() => {
+  if (!paper.value) return [];
+
+  // ✅ Case 1: Array of { name, email }
+  if (Array.isArray(paper.value.authors)) return paper.value.authors;
+
+  // ✅ Case 2: JSON string
+  if (typeof paper.value.authors === "string" && paper.value.authors.trim().startsWith("[")) {
+    try {
+      return JSON.parse(paper.value.authors);
+    } catch {
+      return [];
+    }
+  }
+
+  // ✅ Case 3: Plain string — "John Doe <john@example.com>, Jane Tan"
+  if (typeof paper.value.authors === "string") {
+    return paper.value.authors.split(",").map((s) => {
+      const match = s.match(/(.*)<(.*)>/);
+      if (match) return { name: match[1].trim(), email: match[2].trim() };
+      return { name: s.trim(), email: "" };
+    });
+  }
+
+  return [];
+});
+
 </script>

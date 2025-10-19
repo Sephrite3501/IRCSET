@@ -207,7 +207,7 @@ export async function getPaperReviewDetails(req, res) {
 
       // Fetch paper info
       const sub = await appDb.query(
-        `SELECT s.id, s.title, s.abstract, s.keywords, s.pdf_path, s.status, e.name AS event_name
+        `SELECT s.id, s.title, s.abstract, s.keywords, s.pdf_path, s.status, s.authors, e.name AS event_name
           FROM submissions s
           JOIN events e ON e.id = s.event_id
           WHERE s.id=$1 AND s.event_id=$2`,
