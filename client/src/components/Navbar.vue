@@ -9,7 +9,7 @@
     <ul class="flex space-x-6 text-sm font-medium">
       <li>
         <RouterLink to="/" class="hover:text-yellow-400 transition-colors duration-200">
-          Home
+          My Papers
         </RouterLink>
       </li>
       <li>

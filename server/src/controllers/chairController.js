@@ -392,3 +392,20 @@ export async function searchUsersForEvent(req, res) {
 
   res.json({ items: rows.rows });
 }
+
+
+export async function getAllReviewsForSubmission(req, res) {
+  const { eventId, submissionId } = req.params;
+
+  const q = await appDb.query(
+    `SELECT r.*, u.name AS reviewer_name, u.email AS reviewer_email
+     FROM reviews r
+     JOIN users u ON u.id = r.reviewer_user_id
+     JOIN submissions s ON s.id = r.submission_id
+     WHERE s.event_id = $1 AND s.id = $2`,
+    [eventId, submissionId]
+  );
+
+  res.json({ items: q.rows });
+}
+

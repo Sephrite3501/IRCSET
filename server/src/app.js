@@ -15,6 +15,7 @@ import submissions from './routes/submissions.js';
 import chair from './routes/chair.js';
 import reviewer from './routes/reviewer.js';
 import admin from './routes/admin.js';
+import users from './routes/users.js';
 import finalRoutes from './routes/final.js';
 import fileDownloadRouter from './routes/fileDownload.js';
 import eventsRouter from './routes/event.js';
@@ -125,6 +126,7 @@ app.use('/admin', admin);
 app.use('/submissions', finalRoutes);
 app.use(fileDownloadRouter);
 app.use('/events', eventsRouter);
+app.use('/users', users);
 
 
 

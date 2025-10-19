@@ -64,23 +64,59 @@
                       <div
                         v-for="a in assignmentsBySub[sub.id]"
                         :key="a.reviewer_id"
-                        class="flex items-center justify-between px-3 py-2"
+                        class="px-3 py-2"
                       >
-                        <div class="text-sm">
-                          <div>{{ a.name || a.email }}</div>
-                          <div class="text-xs text-gray-500">
-                            Review status: {{ a.review_status || '—' }}
-                            <span v-if="a.due_at"> • due {{ fmt(a.due_at) }}</span>
+                        <div class="flex items-center justify-between">
+                          <div class="text-sm">
+                            <div>{{ a.name || a.email }}</div>
+                            <div class="text-xs text-gray-500">
+                              Review status: {{ a.review_status || '—' }}
+                              <span v-if="a.due_at"> • due {{ fmt(a.due_at) }}</span>
+                            </div>
+                          </div>
+                          <div class="flex items-center gap-2">
+                            <button
+                              class="text-xs text-indigo-600 hover:underline"
+                              @click="toggleReviewDropdown(sub.id, a.reviewer_id)"
+                            >
+                              {{ expandedReviews[sub.id]?.has(a.reviewer_id) ? 'Hide' : 'Show' }} Review
+                            </button>
+                            <button
+                              class="text-xs text-red-600 hover:underline"
+                              :disabled="loading"
+                              @click="unassignOne(ev.id, sub.id, a.reviewer_id)"
+                            >
+                              Remove
+                            </button>
                           </div>
                         </div>
-                        <button
-                          class="text-xs text-red-600 hover:underline"
-                          :disabled="loading"
-                          @click="unassignOne(ev.id, sub.id, a.reviewer_id)"
-                          title="Unassign reviewer"
-                        >
-                          Remove
-                        </button>
+
+                        <!-- Dropdown content -->
+                        <transition name="fade">
+                          <div
+                            v-if="expandedReviews[sub.id]?.has(a.reviewer_id)"
+                            class="bg-gray-50 border-t p-3 text-sm mt-2 rounded"
+                          >
+                            <div v-if="!reviewsBySub[sub.id]?.[a.reviewer_id]">
+                              <button
+                                class="text-xs text-indigo-600 underline"
+                                @click="loadReview(ev.id, sub.id, a.reviewer_id)"
+                              >
+                                Load review
+                              </button>
+                            </div>
+                            <div v-else>
+                              <p><b>Technical:</b> {{ reviewsBySub[sub.id][a.reviewer_id].score_technical }}</p>
+                              <p><b>Relevance:</b> {{ reviewsBySub[sub.id][a.reviewer_id].score_relevance }}</p>
+                              <p><b>Innovation:</b> {{ reviewsBySub[sub.id][a.reviewer_id].score_innovation }}</p>
+                              <p><b>Writing:</b> {{ reviewsBySub[sub.id][a.reviewer_id].score_writing }}</p>
+                              <p><b>Overall:</b> {{ reviewsBySub[sub.id][a.reviewer_id].score_overall }}</p>
+
+                              <p class="mt-2"><b>Comments (Author):</b><br />{{ reviewsBySub[sub.id][a.reviewer_id].comments_for_author }}</p>
+                              <p class="mt-2"><b>Comments (Committee):</b><br />{{ reviewsBySub[sub.id][a.reviewer_id].comments_committee }}</p>
+                            </div>
+                          </div>
+                        </transition>
                       </div>
                     </div>
                   </div>
@@ -175,6 +211,9 @@ const assignmentsBySub = ref({}) // subId -> [{ reviewer_id, email, name, review
 const searchQ = ref('')
 const selectedToAdd = ref(new Set()) // reviewer ids to add to the currently open submission
 const dueDate = ref('')
+
+const expandedReviews = ref({}); // subId -> Set of reviewer_ids
+const reviewsBySub = ref({}); // subId -> { reviewer_id: reviewData }
 
 onMounted(async () => {
   // must be logged in
@@ -324,6 +363,25 @@ async function unassignOne(eventId, subId, reviewerId) {
 
 async function logout() {
   try { await axios.post('/auth/logout') } finally { router.push('/login') }
+}
+
+
+function toggleReviewDropdown(subId, reviewerId) {
+  const set = expandedReviews.value[subId] || new Set();
+  if (set.has(reviewerId)) set.delete(reviewerId);
+  else set.add(reviewerId);
+  expandedReviews.value = { ...expandedReviews.value, [subId]: set };
+}
+
+async function loadReview(eventId, subId, reviewerId) {
+  try {
+    const { data } = await axios.get(`/chair/${eventId}/submissions/${subId}/reviews`);
+    const match = data.items.find(r => r.reviewer_user_id === reviewerId);
+    if (!reviewsBySub.value[subId]) reviewsBySub.value[subId] = {};
+    reviewsBySub.value[subId][reviewerId] = match || { error: 'No review found' };
+  } catch (e) {
+    console.error('Failed to load review:', e);
+  }
 }
 </script>
 

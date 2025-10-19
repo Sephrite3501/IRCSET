@@ -6,7 +6,8 @@ import {
   listAssignments,
   submitReview,
   listReviewerEvents,
-  getPaperDetails
+  getPaperDetails,
+  getPaperReviewDetails
 } from '../controllers/reviewerController.js';
 import { writeLimiter } from '../middleware/rateLimiter.js';
 import { validateParamId, validateReviewBody } from '../utils/validators.js';
@@ -32,6 +33,13 @@ r.get(
   listAssignments
 );
 
+
+r.get(
+  '/events/:eventId/papers/:paperId/review',
+  requireAuth, requireEventRole('reviewer'),
+  getPaperReviewDetails
+);
+
 // Submit a review for a paper
 r.post(
   '/events/:eventId/papers/:paperId/reviews',
@@ -42,5 +50,6 @@ r.post(
   validateReviewBody,
   submitReview
 );
+
 
 export default r;

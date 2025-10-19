@@ -16,6 +16,7 @@ import {
   addEventReviewer,
   removeEventReviewer,
   searchUsersForEvent,
+  getAllReviewsForSubmission,
 } from '../controllers/chairController.js';
 
 import {
@@ -107,6 +108,13 @@ r.delete('/:eventId/reviewers',
 r.get('/:eventId/users',
   requireAuth, requireEventRole('chair'),
   searchUsersForEvent
+);
+
+r.get(
+  '/:eventId/submissions/:submissionId/reviews',
+  requireAuth,
+  requireEventRole('chair'),
+  getAllReviewsForSubmission
 );
 
 export default r;

@@ -4,7 +4,7 @@ import axios from 'axios'
 // Eager, relative imports
 import Login from '../views/public/Login.vue'
 import Register from '../views/public/Register.vue'
-import Home from '../views/public/Home.vue'
+import MyPapers from '../views/public/MyPapers.vue'
 // (optional) if you want a dashboard page:
 import Dashboard from '../views/public/Dashboard.vue'
 import Submission from '../views/public/Submission.vue'
@@ -14,7 +14,7 @@ const ChairAssignPapers = () => import('../views/chair/ChairAssignPapers.vue')
 const Reviewer = () => import('../views/reviewer/ReviewPapers.vue')
 const PaperDetails = () => import('../views/reviewer/PaperDetails.vue')
 const routes = [
-  { path: '/', component: Home },
+  { path: '/', component: MyPapers },
   { path: '/login', component: Login },
   { path: '/register', component: Register },
   { path: '/dashboard', component: Dashboard }, // or delete if not needed

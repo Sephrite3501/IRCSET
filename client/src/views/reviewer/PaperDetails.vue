@@ -126,13 +126,15 @@
                 <textarea v-model="commentsCommittee" rows="3" placeholder="Private notes for the committee..." class="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-400"></textarea>
             </div>
 
-            <button
+                <button
                 type="submit"
                 :disabled="submitting"
                 class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition disabled:opacity-50"
-            >
-                {{ submitting ? "Submitting..." : "Submit Review" }}
-            </button>
+                >
+                {{ submitting
+                    ? (paper?.review_status === "submitted" ? "Updating..." : "Submitting...")
+                    : (paper?.review_status === "submitted" ? "Edit Review" : "Submit Review") }}
+                </button>
 
             <p v-if="message" :class="messageClass" class="text-sm mt-2">{{ message }}</p>
             </form>
@@ -148,14 +150,11 @@ import axios from "axios";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
-const scoreTechnical = ref(1);
-const scoreRelevance = ref(1);
-const scoreInnovation = ref(1);
-const scoreWriting = ref(1);
-const commentsAuthor = ref("");
-const commentsCommittee = ref("");
+// ----- State -----
+const route = useRoute();
+const eventId = route.params.eventId as string;
+const paperId = route.params.paperId as string;
 
-// ----- Types -----
 interface Author {
   name: string;
   email: string;
@@ -170,37 +169,52 @@ interface Paper {
   status: string;
   event_name: string;
   authors?: Author[];
+  review_status?: string; // 👈 Add this
+  existing_review?: any;  // 👈 Add this
 }
 
-// ----- State -----
-const route = useRoute();
-const eventId = route.params.eventId as string;
-const paperId = route.params.paperId as string;
-
 const paper = ref<Paper | null>(null);
-const reviewScore = ref<number | null>(null);
-const reviewComments = ref("");
+
+const scoreTechnical = ref<number>(1);
+const scoreRelevance = ref<number>(1);
+const scoreInnovation = ref<number>(1);
+const scoreWriting = ref<number>(1);
+const commentsAuthor = ref("");
+const commentsCommittee = ref("");
+
 const submitting = ref(false);
 const message = ref("");
 const messageClass = ref("");
 
-// Compute absolute /uploads path safely
-const pdfUrl = computed(() => {
-  if (!paper.value?.pdf_path) return "";
-  // ensure no double "uploads/uploads"
-  return `/uploads/${paper.value.pdf_path.replace(/^uploads[\\/]/, "").replace(/\\/g, "/")}`;
-});
-
 // ----- Lifecycle -----
 onMounted(async () => {
   try {
-    const res = await axios.get(`/reviewer/events/${eventId}/papers/${paperId}`, {
+    const res = await axios.get(`/reviewer/events/${eventId}/papers/${paperId}/review`, {
       withCredentials: true,
     });
+    console.log("Paper details response:", res.data);
+
     paper.value = res.data.submission || null;
+
+    // 👇 If there's an existing review, prefill form
+    if (paper.value?.existing_review) {
+      const r = paper.value.existing_review;
+      scoreTechnical.value = r.score_technical ?? 1;
+      scoreRelevance.value = r.score_relevance ?? 1;
+      scoreInnovation.value = r.score_innovation ?? 1;
+      scoreWriting.value = r.score_writing ?? 1;
+      commentsAuthor.value = r.comments_for_author ?? "";
+      commentsCommittee.value = r.comments_committee ?? "";
+    }
   } catch (e) {
     console.error("Failed to fetch paper details", e);
   }
+});
+
+// ----- Computed -----
+const pdfUrl = computed(() => {
+  if (!paper.value?.pdf_path) return "";
+  return `/uploads/${paper.value.pdf_path.replace(/^uploads[\\/]/, "").replace(/\\/g, "/")}`;
 });
 
 // ----- Methods -----
@@ -209,39 +223,36 @@ async function submitReview() {
   message.value = "";
 
   try {
+    // Validate locally first
+    const scores = [scoreTechnical.value, scoreRelevance.value, scoreInnovation.value, scoreWriting.value];
+    if (!scores.every((n) => Number.isInteger(n) && n >= 1 && n <= 5)) {
+      message.value = "⚠️ All scores must be integers between 1 and 5.";
+      messageClass.value = "text-yellow-600";
+      submitting.value = false;
+      return;
+    }
+
     const res = await axios.post(
-        `/reviewer/events/${eventId}/papers/${paperId}/reviews`,
-        {
-            score_technical: scoreTechnical.value,
-            score_relevance: scoreRelevance.value,
-            score_innovation: scoreInnovation.value,
-            score_writing: scoreWriting.value,
-            comments_for_author: commentsAuthor.value,
-            comments_committee: commentsCommittee.value,
-        },
-        { withCredentials: true }
-        );
-
-        if (
-        ![scoreTechnical.value, scoreRelevance.value, scoreInnovation.value, scoreWriting.value]
-            .every((n) => Number.isInteger(n) && n >= 1 && n <= 5)
-        ) {
-            message.value = "⚠️ All scores must be integers between 1 and 5.";
-            messageClass.value = "text-yellow-600";
-            submitting.value = false;
-            return;
-        }
-
-        console.log({
-            score_technical: scoreTechnical.value,
-            score_relevance: scoreRelevance.value,
-            score_innovation: scoreInnovation.value,
-            score_writing: scoreWriting.value,
-        });
+      `/reviewer/events/${eventId}/papers/${paperId}/reviews`,
+      {
+        score_technical: scoreTechnical.value,
+        score_relevance: scoreRelevance.value,
+        score_innovation: scoreInnovation.value,
+        score_writing: scoreWriting.value,
+        comments_for_author: commentsAuthor.value,
+        comments_committee: commentsCommittee.value,
+      },
+      { withCredentials: true }
+    );
 
     if (res.data.ok) {
-      message.value = "✅ Review submitted successfully!";
+      message.value = paper.value?.review_status === "submitted"
+        ? "✅ Review updated successfully!"
+        : "✅ Review submitted successfully!";
       messageClass.value = "text-green-600";
+
+      // Mark as submitted locally
+      if (paper.value) paper.value.review_status = "submitted";
     } else {
       message.value = "❌ Submission failed.";
       messageClass.value = "text-red-600";

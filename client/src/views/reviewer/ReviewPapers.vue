@@ -105,10 +105,13 @@
                     <td class="p-3">{{ formatDate(paper.due_at) }}</td>
                     <td class="p-3 text-center">
                     <RouterLink
-                    :to="`/review/${event.id}/${paper.id}`"
-                    class="text-indigo-600 hover:text-indigo-800 font-medium"
+                        :to="`/review/${event.id}/${paper.id}`"
+                        class="font-medium"
+                        :class="paper.review_status === 'submitted'
+                        ? 'text-green-600 hover:text-green-600 cursor-pointer'
+                        : 'text-indigo-600 hover:text-indigo-800'"
                     >
-                    Review
+                        {{ paper.review_status === 'submitted' ? 'Edit Review' : 'Review' }}
                     </RouterLink>
                     </td>
                   </tr>

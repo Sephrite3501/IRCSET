@@ -176,3 +176,70 @@ export async function getPaperDetails(req, res) {
     return res.status(500).json({ error: 'Server error' });
   }
 }
+
+export async function getPaperReviewDetails(req, res) {
+  const uid = req.user?.uid;
+    const eventId = Number(req.params.eventId || 0);
+    const paperId = Number(req.params.paperId || 0);
+
+    console.log("🧩 [getPaperDetails] START", { uid, eventId, paperId });
+
+    if (!eventId || !paperId) {
+      console.warn("⚠️ Invalid event/paper IDs");
+      return res.status(400).json({ error: "Bad IDs" });
+    }
+
+    try {
+      // Check reviewer assignment
+      const assigned = await appDb.query(
+        `SELECT 1
+          FROM assignments a
+          JOIN submissions s ON s.id = a.submission_id
+          WHERE a.submission_id=$1 AND a.reviewer_user_id=$2 AND s.event_id=$3`,
+        [paperId, uid, eventId]
+      );
+      console.log("📋 Assignment check:", assigned.rowCount);
+
+      if (!assigned.rowCount) {
+        console.warn("🚫 Reviewer not assigned to this paper");
+        return res.status(403).json({ error: "Not assigned to this paper" });
+      }
+
+      // Fetch paper info
+      const sub = await appDb.query(
+        `SELECT s.id, s.title, s.abstract, s.keywords, s.pdf_path, s.status, e.name AS event_name
+          FROM submissions s
+          JOIN events e ON e.id = s.event_id
+          WHERE s.id=$1 AND s.event_id=$2`,
+        [paperId, eventId]
+      );
+      console.log("📄 Submission rows:", sub.rows);
+
+      if (!sub.rowCount) {
+        console.warn("❌ Paper not found in event");
+        return res.status(404).json({ error: "Paper not found" });
+      }
+
+      // Fetch review by this reviewer
+      const review = await appDb.query(
+        `SELECT score_technical, score_relevance, score_innovation, score_writing,
+                score_overall, comments_for_author, comments_committee, status
+          FROM reviews
+          WHERE submission_id=$1 AND reviewer_user_id=$2
+          LIMIT 1`,
+        [paperId, uid]
+      );
+      console.log("🧠 Review found:", review.rows);
+
+      return res.json({
+        submission: {
+          ...sub.rows[0],
+          review_status: review.rows[0]?.status || null,
+          existing_review: review.rows[0] || null
+        }
+      });
+    } catch (err) {
+      console.error("💥 getPaperDetails error:", err);
+      return res.status(500).json({ error: "Internal server error", details: err.message });
+    }
+}
