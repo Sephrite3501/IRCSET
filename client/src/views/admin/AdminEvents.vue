@@ -245,6 +245,3 @@ async function removeChair(eventId, userId) {
 }
 </script>
 
-<style scoped>
-/* optional: no extra styles needed since you use Tailwind */
-</style>

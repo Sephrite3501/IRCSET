@@ -2,22 +2,44 @@
 import { Router } from 'express';
 import requireAuth from '../middleware/requireAuth.js';
 import { requireEventRole } from '../middleware/requireEventRole.js';
-import { listAssignments, submitReview } from '../controllers/reviewerController.js';
+import {
+  listAssignments,
+  submitReview,
+  listReviewerEvents,
+  getPaperDetails
+} from '../controllers/reviewerController.js';
 import { writeLimiter } from '../middleware/rateLimiter.js';
 import { validateParamId, validateReviewBody } from '../utils/validators.js';
 
 const r = Router();
 
+// Fetch all reviewer events
+r.get('/events', requireAuth, listReviewerEvents);
+
+// Fetch specific paper details
+r.get(
+  '/events/:eventId/papers/:paperId',
+  requireAuth,
+  requireEventRole('reviewer'),
+  getPaperDetails
+);
+
 // List reviewer assignments for an event
-r.get('/events/:eventId/reviewer/assignments',
-  requireAuth, requireEventRole('reviewer'),
+r.get(
+  '/events/:eventId/reviewer/assignments',
+  requireAuth,
+  requireEventRole('reviewer'),
   listAssignments
 );
 
-// Submit a review for a submission in an event
-r.post('/events/:eventId/submissions/:id/reviews',
-  requireAuth, requireEventRole('reviewer'), writeLimiter,
-  validateParamId('id'), validateReviewBody,
+// Submit a review for a paper
+r.post(
+  '/events/:eventId/papers/:paperId/reviews',
+  requireAuth,
+  requireEventRole('reviewer'),
+  writeLimiter,
+  validateParamId('paperId'),
+  validateReviewBody,
   submitReview
 );
 

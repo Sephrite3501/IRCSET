@@ -11,6 +11,8 @@ import Submission from '../views/public/Submission.vue'
 const AdminEvents = () => import('../views/admin/AdminEvents.vue')
 const ChairManageReviewers = () => import('../views/chair/ChairManageReviewers.vue')
 const ChairAssignPapers = () => import('../views/chair/ChairAssignPapers.vue')
+const Reviewer = () => import('../views/reviewer/ReviewPapers.vue')
+const PaperDetails = () => import('../views/reviewer/PaperDetails.vue')
 const routes = [
   { path: '/', component: Home },
   { path: '/login', component: Login },
@@ -20,7 +22,20 @@ const routes = [
   { path: '/admin', redirect: '/admin/events' },                     
   { path: '/admin/events', component: AdminEvents, meta: { requiresAdmin: true } }, 
   { path: '/chair/reviewers', component: ChairManageReviewers, meta: { requiresAuth: true } },
-  { path: '/chair/assign', component: ChairAssignPapers, meta: { requiresAuth: true } }
+  { path: '/chair/assign', component: ChairAssignPapers, meta: { requiresAuth: true } },
+  { path: '/tasks/assigned', component: Reviewer, meta: { requiresAuth: true } },
+  {
+    path: '/review/:eventId/:paperId',
+    name: 'PaperDetails',
+    component: PaperDetails,
+    props: true,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/review/:eventId/:paperId',
+    component: () => import('../views/reviewer/PaperDetails.vue'),
+    meta: { requiresAuth: true }
+  }
 ]
 
 export const router = createRouter({

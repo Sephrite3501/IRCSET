@@ -2,10 +2,12 @@
   <div class="min-h-screen bg-gray-50 flex flex-col items-center py-12">
     <h1 class="text-2xl font-semibold text-gray-800 mb-8">Author — Submit Paper</h1>
 
-    <!-- Two-column layout -->
-    <div class="w-11/12 max-w-6xl bg-white rounded-xl shadow p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+    <div
+      class="w-11/12 max-w-6xl bg-white rounded-xl shadow p-8 grid grid-cols-1 md:grid-cols-2 gap-8"
+    >
       <!-- LEFT SIDE: Form fields -->
       <div class="space-y-6">
+        <!-- Event ID -->
         <div>
           <label class="block text-gray-700 font-medium mb-2">Event ID</label>
           <select
@@ -13,12 +15,11 @@
             class="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"
           >
             <option disabled value="">Select Event ID</option>
-            <option v-for="id in [1, 2, 3, 4]" :key="id" :value="id">
-              {{ id }}
-            </option>
+            <option v-for="id in [1, 2, 3, 4]" :key="id" :value="id">{{ id }}</option>
           </select>
         </div>
 
+        <!-- Title -->
         <div>
           <label class="block text-gray-700 font-medium mb-2">Title</label>
           <input
@@ -29,6 +30,32 @@
           />
         </div>
 
+        <!-- Abstract -->
+        <div>
+          <label class="block text-gray-700 font-medium mb-2">Abstract</label>
+          <textarea
+            v-model="abstract"
+            rows="4"
+            placeholder="Summarize your paper in a short abstract..."
+            class="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 resize-none"
+          ></textarea>
+        </div>
+
+        <!-- Keywords -->
+        <div>
+          <label class="block text-gray-700 font-medium mb-2">Keywords</label>
+          <input
+            v-model="keywords"
+            type="text"
+            placeholder="e.g., cybersecurity, AI, IoT"
+            class="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"
+          />
+          <p class="text-sm text-gray-500 mt-1">
+            Separate multiple keywords with commas.
+          </p>
+        </div>
+
+        <!-- IRC Member Email (optional) -->
         <div>
           <label class="block text-gray-700 font-medium mb-2">IRC Member Email (optional)</label>
           <input
@@ -37,6 +64,41 @@
             placeholder="Enter IRC member email"
             class="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"
           />
+        </div>
+
+        <!-- Dynamic Authors Section -->
+        <div>
+          <label class="block text-gray-700 font-medium mb-3">Authors</label>
+
+          <div v-for="(author, index) in authors" :key="index" class="flex space-x-2 mb-3">
+            <input
+              v-model="author.name"
+              type="text"
+              placeholder="Author name"
+              class="flex-1 border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"
+            />
+            <input
+              v-model="author.email"
+              type="email"
+              placeholder="Email"
+              class="flex-1 border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"
+            />
+            <button
+              type="button"
+              @click="removeAuthor(index)"
+              class="text-red-500 hover:text-red-700 font-semibold px-2"
+            >
+              ✕
+            </button>
+          </div>
+
+          <button
+            type="button"
+            @click="addAuthor"
+            class="px-3 py-1 text-sm font-medium bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 transition"
+          >
+            + Add Author
+          </button>
         </div>
       </div>
 
@@ -53,7 +115,7 @@
           <div class="text-center space-y-2 pointer-events-none">
             <div class="text-4xl">☁️</div>
             <p class="text-gray-600">
-              <span class="font-medium text-indigo-500">Choose files</span> or drag & drop here
+              <span class="font-medium text-indigo-500">Choose PDF</span> or drag & drop here
             </p>
           </div>
           <input
@@ -99,10 +161,21 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const eventId = ref("");
 const title = ref("");
 const ircEmail = ref("");
+const abstract = ref("");
+const keywords = ref("");
+const authors = ref([{ name: "", email: "" }]);
 const files = ref([]);
 const isDragging = ref(false);
 const message = ref("");
 const messageClass = ref("text-gray-600");
+
+function addAuthor() {
+  authors.value.push({ name: "", email: "" });
+}
+
+function removeAuthor(index) {
+  authors.value.splice(index, 1);
+}
 
 function handleDrop(e) {
   isDragging.value = false;
@@ -123,31 +196,29 @@ function formatSize(size) {
   return mb > 1 ? mb.toFixed(2) + " MB" : kb.toFixed(2) + " KB";
 }
 
-/**
- * Submits the paper to `/submissions/{eventId}`
- * mimicking the reference HTML's author submission logic.
- */
 async function submitPaper() {
   message.value = "Submitting...";
   messageClass.value = "text-blue-500";
 
   try {
-
     const csrf = await axios.get(`/auth/csrf-token`, { withCredentials: true });
     const token = csrf.data.csrfToken || csrf.data.token;
-    console.log("CSRF Token:", token);
 
     const fd = new FormData();
     fd.append("pdf", files.value[0]);
     fd.append("title", title.value);
-
+    fd.append("abstract", abstract.value);
+    fd.append("keywords", keywords.value);
     if (ircEmail.value) fd.append("irc_email", ircEmail.value);
 
+    // Add authors as JSON string (dict/array form)
+    fd.append("authors", JSON.stringify(authors.value));
+
     const res = await fetch(`${API_BASE}/submissions/${eventId.value}`, {
-        headers: { "X-CSRF-Token": token },
-        method: "POST",
-        body: fd,
-        credentials: "include",  
+      headers: { "X-CSRF-Token": token },
+      method: "POST",
+      body: fd,
+      credentials: "include",
     });
 
     const data = await res.json().catch(() => null);

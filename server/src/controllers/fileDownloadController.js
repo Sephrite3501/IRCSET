@@ -54,7 +54,12 @@ function streamPdf({ req, res, fullPath, filename, traceId, actorUserId, action,
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('Accept-Ranges', 'bytes');
-  res.setHeader("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
+  //res.setHeader("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
+  res.setHeader(
+  "Content-Security-Policy",
+  "default-src 'none'; frame-ancestors 'self' http://localhost:8080;"
+  //frame-ancestors 'self' https://yourdomain.com; for live deployments
+);
   res.setHeader('Content-Disposition', (forceDownload ? 'attachment' : 'inline') + `; filename="${filename}"`);
 
   const range = req.headers.range;

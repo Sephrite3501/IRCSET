@@ -26,32 +26,50 @@
       <RouterLink to="/admin/events" class="hover:text-yellow-400 transition-colors duration-200">
           Admin
       </RouterLink>
+      
       </li>
       <li v-if="user?.roles?.includes('chair')" class="relative group">
-  <span class="hover:text-yellow-400 cursor-pointer transition-colors duration-200">
-    Chair ▾
-  </span>
-  <ul
-    class="absolute left-0 mt-1 hidden group-hover:block bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-10"
-  >
-    <li>
-      <RouterLink
-        to="/chair/reviewers"
-        class="block px-4 py-2 text-sm hover:bg-gray-700 hover:text-yellow-400"
-      >
-        Manage Reviewers
-      </RouterLink>
-    </li>
-    <li>
-      <RouterLink
-        to="/chair/assign"
-        class="block px-4 py-2 text-sm hover:bg-gray-700 hover:text-yellow-400"
-      >
-        Assign Papers
-      </RouterLink>
-    </li>
-  </ul>
-</li>
+        <span class="hover:text-yellow-400 cursor-pointer transition-colors duration-200">
+          Chair ▾
+        </span>
+        <ul
+          class="absolute left-0 mt-1 hidden group-hover:block bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-10"
+        >
+          <li>
+            <RouterLink
+              to="/chair/reviewers"
+              class="block px-4 py-2 text-sm hover:bg-gray-700 hover:text-yellow-400"
+            >
+              Manage Reviewers
+            </RouterLink>
+          </li>
+          <li>
+            <RouterLink
+              to="/chair/assign"
+              class="block px-4 py-2 text-sm hover:bg-gray-700 hover:text-yellow-400"
+            >
+              Assign Papers
+            </RouterLink>
+          </li>
+        </ul>
+      </li>
+      <li v-if="user?.roles?.includes('reviewer')" class="relative group">
+        <span class="hover:text-yellow-400 cursor-pointer transition-colors duration-200">
+          Tasks ▾
+        </span>
+        <ul
+          class="absolute left-0 mt-1 hidden group-hover:block bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-10"
+        >
+          <li>
+            <RouterLink
+              to="/tasks/assigned"
+              class="block px-4 py-2 text-sm hover:bg-gray-700 hover:text-yellow-400"
+            >
+              Assigned Papers
+            </RouterLink>
+          </li>
+        </ul>
+      </li>
       <li v-if="!user">
         <RouterLink to="/login" class="hover:text-yellow-400 transition-colors duration-200">
           Login

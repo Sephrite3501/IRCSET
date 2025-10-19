@@ -1,6 +1,7 @@
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
+import path from 'path';
 import cookieParser from 'cookie-parser';
 import httpMetrics from './middleware/httpMetrics.js';
 import originGuard from './middleware/originGuard.js';
@@ -17,6 +18,7 @@ import admin from './routes/admin.js';
 import finalRoutes from './routes/final.js';
 import fileDownloadRouter from './routes/fileDownload.js';
 import eventsRouter from './routes/event.js';
+import { fileURLToPath } from 'url'; 
 
 import dotenv from 'dotenv';
 dotenv.config();
@@ -94,12 +96,27 @@ app.use(
 
 app.use(httpMetrics());
 
+// Resolve absolute path
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// 👇 Serve uploaded PDFs and other static files
+const uploadsDir = path.resolve(process.cwd(), 'uploads');
+
+
 // Rate limits
 app.use(standardLimiter);
 app.use('/auth', authLimiter);
 
 // Routes
 app.use(health);
+app.use('/uploads', express.static(uploadsDir, {
+  setHeaders: (res, filePath) => {
+    if (path.extname(filePath) === '.pdf') {
+      res.setHeader('Content-Type', 'application/pdf');
+    }
+  }
+}));
 app.use('/auth', auth);
 app.use('/submissions', submissions);
 app.use('/chair', chair);
@@ -108,6 +125,9 @@ app.use('/admin', admin);
 app.use('/submissions', finalRoutes);
 app.use(fileDownloadRouter);
 app.use('/events', eventsRouter);
+
+
+
 
 app.get('/', (req, res) => res.json({ name: 'IRCSET API' }));
 

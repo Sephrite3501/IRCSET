@@ -73,31 +73,27 @@ export const validateAssignBody = (req, res, next) => {
  */
 export const validateReviewBody = (req, res, next) => {
   const schema = z.object({
-    // accept score_overall | score | rating and coerce to number 0..10
-    score_overall: z.preprocess(
-      (v) => v ?? req.body?.score ?? req.body?.rating,
-      z.coerce.number().min(0).max(10)
-    ),
-    // accept various comment keys; both optional
-    comments_for_author: z.preprocess(
-      (v) => v ?? req.body?.comment ?? req.body?.comments,
-      z.string().max(5000).optional().nullable()
-    ),
-    comments_confidential: z.string().max(5000).optional().nullable(),
+    score_technical: z.coerce.number().int().min(1).max(5),
+    score_relevance: z.coerce.number().int().min(1).max(5),
+    score_innovation: z.coerce.number().int().min(1).max(5),
+    score_writing: z.coerce.number().int().min(1).max(5),
+    comments_for_author: z.string().max(5000).optional().nullable(),
+    comments_committee: z.string().max(5000).optional().nullable(),
   });
 
   const r = schema.safeParse(req.body);
   if (!r.success) {
-    return res.status(400).json({ error: 'Invalid review body', details: r.error.flatten() });
+    return res
+      .status(400)
+      .json({ error: 'Invalid review body', details: r.error.flatten() });
   }
 
-  // normalize + sanitize to what the controller expects
-  req.body.score_overall = r.data.score_overall;
+  // sanitize
   req.body.comments_for_author = r.data.comments_for_author
     ? sanitizeHtml(r.data.comments_for_author, { allowedTags: [], allowedAttributes: {} }).trim() || null
     : null;
-  req.body.comments_confidential = r.data.comments_confidential
-    ? sanitizeHtml(r.data.comments_confidential, { allowedTags: [], allowedAttributes: {} }).trim() || null
+  req.body.comments_committee = r.data.comments_committee
+    ? sanitizeHtml(r.data.comments_committee, { allowedTags: [], allowedAttributes: {} }).trim() || null
     : null;
 
   next();
