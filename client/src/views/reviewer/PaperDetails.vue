@@ -78,6 +78,14 @@
             </ul>
             </div>
 
+            <!-- Abstract -->
+          <div v-if="paper.abstract" class="bg-slate-50 border border-slate-200 rounded-lg p-3 mb-4">
+            <h3 class="text-xs font-semibold text-gray-600 uppercase mb-1">Abstract</h3>
+            <p class="text-sm text-gray-800 leading-relaxed whitespace-pre-line">
+              {{ paper.abstract }}
+            </p>
+          </div>
+
           <div v-if="paper.keywords" class="bg-slate-50 border border-slate-200 rounded-lg p-3">
             <h3 class="text-xs font-semibold text-gray-600 uppercase mb-1">Keywords</h3>
             <div class="flex flex-wrap gap-2">

@@ -51,4 +51,27 @@ r.get('/events/:eventId/users',
   asyncHandler(Admin.listEventUsers)
 );
 
+
+// Lock or unlock user (soft lock)
+r.post('/users/:userId/lock',
+  requireAuth, requireAdmin, validateParamId('userId'),
+  asyncHandler(Admin.lockUser)
+);
+
+r.post('/users/:userId/unlock',
+  requireAuth, requireAdmin, validateParamId('userId'),
+  asyncHandler(Admin.unlockUser)
+);
+
+// Update user (name/email)
+r.put('/users/:userId',
+  requireAuth, requireAdmin, validateParamId('userId'),
+  asyncHandler(Admin.updateUser)
+);
+
+// Update user role (admin privilege)
+r.put('/users/:userId/role',
+  requireAuth, requireAdmin, validateParamId('userId'),
+  asyncHandler(Admin.updateUserRole)
+);
 export default r;

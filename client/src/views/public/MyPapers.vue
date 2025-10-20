@@ -5,9 +5,27 @@
         My Submitted Papers
       </h1>
 
-      <div v-if="events.length">
+      <!-- 🔍 Search Bar -->
+      <div class="flex items-center gap-3 mb-10">
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Search by paper title or event name..."
+          class="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
+        />
+        <button
+          v-if="searchQuery"
+          @click="searchQuery = ''"
+          class="text-sm text-gray-500 hover:text-gray-700 transition"
+        >
+          ✕ Clear
+        </button>
+      </div>
+
+      <!-- ✅ Filtered Events -->
+      <div v-if="filteredEvents.length">
         <div
-          v-for="event in events"
+          v-for="event in filteredEvents"
           :key="event.event_id"
           class="mb-12 border-b border-gray-200 pb-8"
         >
@@ -15,6 +33,7 @@
             {{ event.event_name }}
           </h2>
 
+          <!-- Papers per Event -->
           <div
             v-for="paper in event.papers"
             :key="paper.submission_id"
@@ -24,22 +43,38 @@
               <h3 class="text-xl font-semibold text-gray-900 mb-1">
                 {{ paper.title }}
               </h3>
-              <p class="text-gray-600 text-sm mb-3">
-                <strong>Status:</strong>
+
+              <!-- Status Tag -->
+              <div class="flex items-center mb-3">
+                <span class="text-gray-700 text-sm font-medium mr-2">Status:</span>
                 <span
-                  :class="{
-                    'text-green-600 font-medium': paper.status === 'Accepted',
-                    'text-red-600 font-medium': paper.status === 'Rejected',
-                    'text-yellow-600 font-medium': paper.status === 'Under Review'
-                  }"
+                  :class="statusTagClass(paper.status)"
+                  class="px-3 py-1 text-xs font-semibold rounded-full capitalize border transition-colors duration-200 ease-in-out"
                 >
-                  {{ paper.status }}
+                  {{ paper.status || '—' }}
                 </span>
-              </p>
-              <p class="text-gray-700 leading-relaxed mb-4">
-                <strong class="text-gray-800">Abstract:</strong>
-                {{ paper.abstract || "—" }}
-              </p>
+              </div>
+
+              <!-- Abstract -->
+              <div v-if="paper.abstract" class="bg-slate-50 border border-slate-200 rounded-lg p-3 mb-4">
+                <h3 class="text-xs font-semibold text-gray-600 uppercase mb-1">Abstract</h3>
+                <p class="text-sm text-gray-800 leading-relaxed whitespace-pre-line">
+                  {{ paper.abstract }}
+                </p>
+              </div>
+
+                <div v-if="paper.keywords" class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                <h3 class="text-xs font-semibold text-gray-600 uppercase mb-1">Keywords</h3>
+                <div class="flex flex-wrap gap-2">
+                  <span
+                    v-for="(kw, i) in paper.keywords.split(',')"
+                    :key="i"
+                    class="bg-indigo-100 text-indigo-700 text-xs font-medium px-2 py-1 rounded-full"
+                  >
+                    {{ kw.trim() }}
+                  </span>
+                </div>
+              </div>
 
               <!-- Reviews -->
               <div v-if="paper.reviews.length">
@@ -61,8 +96,9 @@
                       <span
                         v-if="!review.review_submitted"
                         class="italic text-gray-500"
-                        >(Pending)</span
                       >
+                        (Pending)
+                      </span>
                     </span>
                     <svg
                       :class="{ 'rotate-180': isExpanded(paper.submission_id, i) }"
@@ -103,6 +139,7 @@
                       Score Breakdown
                     </h5>
 
+                    <!-- Score Table -->
                     <div class="overflow-x-auto mb-5">
                       <table
                         class="w-full text-sm border border-gray-200 rounded-lg overflow-hidden"
@@ -118,21 +155,11 @@
                         </thead>
                         <tbody>
                           <tr class="text-center text-gray-800">
-                            <td class="border py-2">
-                              {{ review.score_technical ?? "—" }}
-                            </td>
-                            <td class="border py-2">
-                              {{ review.score_relevance ?? "—" }}
-                            </td>
-                            <td class="border py-2">
-                              {{ review.score_innovation ?? "—" }}
-                            </td>
-                            <td class="border py-2">
-                              {{ review.score_writing ?? "—" }}
-                            </td>
-                            <td
-                              class="border py-2 font-semibold text-indigo-600"
-                            >
+                            <td class="border py-2">{{ review.score_technical ?? "—" }}</td>
+                            <td class="border py-2">{{ review.score_relevance ?? "—" }}</td>
+                            <td class="border py-2">{{ review.score_innovation ?? "—" }}</td>
+                            <td class="border py-2">{{ review.score_writing ?? "—" }}</td>
+                            <td class="border py-2 font-semibold text-indigo-600">
                               {{ review.score_overall ?? "—" }}
                             </td>
                           </tr>
@@ -142,12 +169,8 @@
 
                     <!-- Comments -->
                     <div class="space-y-4">
-                      <div
-                        class="border border-gray-200 bg-gray-50 rounded-lg p-4"
-                      >
-                        <p
-                          class="text-sm font-semibold text-gray-700 mb-1 flex items-center"
-                        >
+                      <div class="border border-gray-200 bg-gray-50 rounded-lg p-4">
+                        <p class="text-sm font-semibold text-gray-700 mb-1 flex items-center">
                           <svg
                             class="w-4 h-4 mr-1 text-indigo-500"
                             fill="none"
@@ -168,12 +191,8 @@
                         </p>
                       </div>
 
-                      <div
-                        class="border border-gray-200 bg-gray-50 rounded-lg p-4"
-                      >
-                        <p
-                          class="text-sm font-semibold text-gray-700 mb-1 flex items-center"
-                        >
+                      <div class="border border-gray-200 bg-gray-50 rounded-lg p-4">
+                        <p class="text-sm font-semibold text-gray-700 mb-1 flex items-center">
                           <svg
                             class="w-4 h-4 mr-1 text-indigo-500"
                             fill="none"
@@ -213,12 +232,14 @@
   </div>
 </template>
 
+
 <script setup>
-import { ref, onMounted } from "vue"
+import { ref, onMounted, computed } from "vue"
 import axios from "axios"
 
 const events = ref([])
 const expanded = ref({})
+const searchQuery = ref("");
 
 const toggleReview = (submissionId, idx) => {
   const key = `${submissionId}-${idx}`
@@ -235,4 +256,43 @@ onMounted(async () => {
     console.error("Failed to load papers:", e)
   }
 })
+
+
+function statusTagClass(status) {
+  const s = (status || '').toLowerCase().trim();
+
+  if (s === 'accepted' || s === 'approved') {
+    return 'bg-green-100 text-green-700 border-green-300';
+  }
+  if (s === 'rejected') {
+    return 'bg-red-100 text-red-700 border-red-300';
+  }
+  if (s === 'under review' || s === 'under_review' || s === 'reviewing') {
+    return 'bg-yellow-100 text-yellow-700 border-yellow-300';
+  }
+  if (s === 'decision made') {
+    return 'bg-indigo-100 text-indigo-700 border-indigo-300';
+  }
+  if (s === 'Submitted' || s === 'submitted') {
+    return 'bg-purple-100 text-purple-700 border-purple-300';
+  }
+  return 'bg-gray-100 text-gray-700 border-gray-300';
+}
+
+const filteredEvents = computed(() => {
+  if (!searchQuery.value.trim()) return events.value;
+
+  const q = searchQuery.value.toLowerCase();
+
+  return events.value
+    .map((event) => ({
+      ...event,
+      papers: event.papers.filter(
+        (p) =>
+          p.title.toLowerCase().includes(q) ||
+          event.event_name.toLowerCase().includes(q)
+      ),
+    }))
+    .filter((event) => event.papers.length > 0);
+});
 </script>

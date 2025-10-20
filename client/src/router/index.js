@@ -8,6 +8,8 @@ import MyPapers from '../views/public/MyPapers.vue'
 // (optional) if you want a dashboard page:
 import Dashboard from '../views/public/Dashboard.vue'
 import Submission from '../views/public/Submission.vue'
+import AdminUsers from '../views/admin/AdminUsers.vue'
+import ChairApprovedPapers from '../views/chair/ChairViewAllApproved.vue'
 const AdminEvents = () => import('../views/admin/AdminEvents.vue')
 const ChairManageReviewers = () => import('../views/chair/ChairManageReviewers.vue')
 const ChairAssignPapers = () => import('../views/chair/ChairAssignPapers.vue')
@@ -21,8 +23,10 @@ const routes = [
   { path: '/submission', component: Submission },
   { path: '/admin', redirect: '/admin/events' },                     
   { path: '/admin/events', component: AdminEvents, meta: { requiresAdmin: true } }, 
+  { path: '/admin/users', component: AdminUsers, meta: { requiresAdmin: true } }, 
   { path: '/chair/reviewers', component: ChairManageReviewers, meta: { requiresAuth: true } },
   { path: '/chair/assign', component: ChairAssignPapers, meta: { requiresAuth: true } },
+  { path: '/chair/approved-papers', component: ChairApprovedPapers, meta: { requiresAuth: true } },
   { path: '/tasks/assigned', component: Reviewer, meta: { requiresAuth: true } },
   {
     path: '/review/:eventId/:paperId',

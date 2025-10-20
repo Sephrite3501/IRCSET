@@ -17,6 +17,8 @@ import {
   removeEventReviewer,
   searchUsersForEvent,
   getAllReviewsForSubmission,
+  updateSubmissionStatus,
+  getApprovedSubmissions,
 } from '../controllers/chairController.js';
 
 import {
@@ -116,5 +118,15 @@ r.get(
   requireEventRole('chair'),
   getAllReviewsForSubmission
 );
+
+r.put(
+  '/:eventId/submissions/:submissionId/status',
+  requireAuth,
+  requireEventRole('chair'),
+  updateSubmissionStatus
+);
+
+r.get("/approved-submissions", requireAuth, getApprovedSubmissions);
+
 
 export default r;

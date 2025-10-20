@@ -239,7 +239,6 @@ export async function getPaperReviewDetails(req, res) {
         }
       });
     } catch (err) {
-      console.error("💥 getPaperDetails error:", err);
       return res.status(500).json({ error: "Internal server error", details: err.message });
     }
 }

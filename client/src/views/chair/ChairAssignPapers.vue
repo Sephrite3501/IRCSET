@@ -22,6 +22,23 @@
         {{ errorMsg }}
       </div>
 
+            <!-- Search -->
+      <div class="mb-6 flex items-center gap-3">
+        <input
+          v-model="searchQGlobal"
+          type="text"
+          placeholder="Search submissions by title..."
+          class="flex-1 border rounded-md px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-400"
+        />
+        <button
+          v-if="searchQGlobal"
+          @click="searchQGlobal = ''"
+          class="text-sm text-gray-500 hover:text-gray-700"
+        >
+          ✕ Clear
+        </button>
+      </div>
+
       <!-- Main Container -->
       <div class="bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
         <h2 class="text-xl font-semibold text-gray-800 mb-6 border-b pb-2">
@@ -31,6 +48,12 @@
         <div v-if="!events.length" class="text-gray-500 italic">
           You are not assigned as chair in any event.
         </div>
+        <RouterLink
+            to="/chair/approved-papers"
+            class="text-sm text-indigo-600 hover:text-indigo-800 mt-1"
+          >
+            View All Approved Papers
+        </RouterLink>
 
         <!-- Events -->
         <div v-for="ev in events" :key="ev.id" class="mb-8">
@@ -66,12 +89,12 @@
                 class="px-6 pb-8 bg-white border-t border-gray-200 rounded-b-xl"
               >
                 <div
-                  v-if="(submissionsByEvent[ev.id] || []).length"
+                  v-if="filteredSubmissions(ev.id).length"
                   class="divide-y divide-gray-200"
                 >
                   <!-- Submissions -->
                   <div
-                    v-for="sub in submissionsByEvent[ev.id]"
+                    v-for="sub in filteredSubmissions(ev.id)"
                     :key="sub.id"
                     class="py-6"
                   >
@@ -80,18 +103,47 @@
                       class="flex flex-col md:flex-row md:items-center md:justify-between gap-2"
                     >
                       <div>
-                        <h3 class="font-semibold text-gray-900">
+                        <h3 class="font-semibold text-gray-900 flex items-center gap-3">
                           {{ sub.title }}
+                          <span
+                            class="text-xs font-medium px-2 py-0.5 rounded"
+                            :class="{
+                              'bg-green-100 text-green-700': sub.status === 'approved',
+                              'bg-red-100 text-red-700': sub.status === 'rejected',
+                              'bg-gray-100 text-gray-700': !['approved','rejected'].includes(sub.status)
+                            }"
+                          >
+                            {{ sub.status }}
+                          </span>
                         </h3>
                         <p class="text-xs text-gray-500 mt-1">
-                          <b>Status:</b> {{ sub.status }}
-                          • <b>Assigned:</b> {{ sub.n_assigned }}
-                          • <b>Reviews:</b> {{ sub.n_submitted }}
-                          • <b>Avg Score:</b>
+                          <b>Assigned:</b> {{ sub.n_assigned }} •
+                          <b>Reviews:</b> {{ sub.n_submitted }} •
+                          <b>Avg Score:</b>
                           <span class="text-indigo-600">
                             {{ formatScore(sub.avg_score) }}
                           </span>
                         </p>
+                      </div>
+                      <!-- Approve / Reject Buttons -->
+                      <div class="flex gap-2 mt-2 md:mt-0">
+                        <!-- Approve -->
+                        <button
+                          @click="updateStatus(ev.id, sub.id, 'approved')"
+                          class="px-3 py-1 text-xs rounded bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          :disabled="loading || sub.n_submitted < sub.n_assigned"
+                        >
+                          Approve
+                        </button>
+
+                        <!-- Reject -->
+                        <button
+                          @click="updateStatus(ev.id, sub.id, 'rejected')"
+                          class="px-3 py-1 text-xs rounded bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          :disabled="loading || sub.n_submitted < sub.n_assigned"
+                        >
+                          Reject
+                        </button>
                       </div>
                     </div>
 
@@ -396,6 +448,8 @@ const dueDate = ref('')
 const expandedReviews = ref({}); // subId -> Set of reviewer_ids
 const reviewsBySub = ref({}); // subId -> { reviewer_id: reviewData }
 
+const searchQGlobal = ref('')
+
 onMounted(async () => {
   // must be logged in
   try {
@@ -562,6 +616,33 @@ async function loadReview(eventId, subId, reviewerId) {
     reviewsBySub.value[subId][reviewerId] = match || { error: 'No review found' };
   } catch (e) {
     console.error('Failed to load review:', e);
+  }
+}
+
+
+// ✅ Search filtering
+function filteredSubmissions(eventId) {
+  const all = submissionsByEvent.value[eventId] || []
+  const q = searchQGlobal.value.trim().toLowerCase()
+  if (!q) return all
+  return all.filter((s) => s.title.toLowerCase().includes(q))
+}
+
+// ✅ Approve / Reject
+async function updateStatus(eventId, subId, newStatus) {
+  try {
+    loading.value = true
+    await axios.put(`/chair/${eventId}/submissions/${subId}/status`, {
+      status: newStatus
+    })
+    // Local update
+    const subs = submissionsByEvent.value[eventId] || []
+    const idx = subs.findIndex((s) => s.id === subId)
+    if (idx !== -1) subs[idx].status = newStatus
+  } catch (e) {
+    alert(e?.response?.data?.error || 'Failed to update status')
+  } finally {
+    loading.value = false
   }
 }
 </script>

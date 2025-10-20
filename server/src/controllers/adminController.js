@@ -257,3 +257,84 @@ export async function listAllUsers(req, res) {
 
   res.json({ items, page, limit, total });
 }
+
+
+// Admin: soft-lock user
+export async function lockUser(req, res) {
+  const userId = Number(req.params.userId || 0);
+  if (!userId) throw new ApiError(400, 'Invalid user ID');
+
+  const upd = await appDb.query(
+    `UPDATE users SET is_active = FALSE WHERE id = $1 RETURNING id, email, is_active`,
+    [userId]
+  );
+
+  if (!upd.rowCount) throw new ApiError(404, 'User not found');
+
+  await logSecurityEvent({
+    actorUserId: req.user.uid,
+    action: 'admin.lock_user',
+    severity: 'warn',
+    details: { target_user_id: userId }
+  });
+
+  res.json({ ok: true, user: upd.rows[0] });
+}
+
+// Admin: unlock user
+export async function unlockUser(req, res) {
+  const userId = Number(req.params.userId || 0);
+  if (!userId) throw new ApiError(400, 'Invalid user ID');
+
+  const upd = await appDb.query(
+    `UPDATE users SET is_active = TRUE WHERE id = $1 RETURNING id, email, is_active`,
+    [userId]
+  );
+
+  if (!upd.rowCount) throw new ApiError(404, 'User not found');
+
+  await logSecurityEvent({
+    actorUserId: req.user.uid,
+    action: 'admin.unlock_user',
+    severity: 'info',
+    details: { target_user_id: userId }
+  });
+
+  res.json({ ok: true, user: upd.rows[0] });
+}
+
+// Admin: update user name/email
+export async function updateUser(req, res) {
+  const userId = Number(req.params.userId || 0);
+  const name = cleanText(req.body?.name, { max: 120 });
+  const email = cleanText(req.body?.email, { max: 200 });
+
+  if (!userId || !email) throw new ApiError(400, 'Invalid input');
+
+  const upd = await appDb.query(
+    `UPDATE users SET name = $1, email = $2 WHERE id = $3
+     RETURNING id, name, email, is_active, is_admin`,
+    [name, email, userId]
+  );
+
+  if (!upd.rowCount) throw new ApiError(404, 'User not found');
+  res.json({ ok: true, user: upd.rows[0] });
+}
+
+// Admin: update user role (admin privilege)
+export async function updateUserRole(req, res) {
+  const userId = Number(req.params.userId || 0);
+  const role = req.body?.role;
+
+  if (!userId || typeof role !== 'boolean')
+    throw new ApiError(400, 'Expected role: true/false for admin');
+
+  const upd = await appDb.query(
+    `UPDATE users SET is_admin = $1 WHERE id = $2
+     RETURNING id, email, is_admin`,
+    [role, userId]
+  );
+
+  if (!upd.rowCount) throw new ApiError(404, 'User not found');
+  res.json({ ok: true, user: upd.rows[0] });
+}

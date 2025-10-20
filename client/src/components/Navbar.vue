@@ -44,14 +44,33 @@
           </RouterLink>
         </li>
 
-        <li v-if="user?.is_admin">
-          <RouterLink
-            to="/admin/events"
-            class="hover:text-yellow-400 transition-colors duration-200"
-            :class="{ 'text-yellow-400': route.path.startsWith('/admin') }"
+        <!-- Admin Dropdown -->
+        <li v-if="user?.is_admin" class="relative group">
+          <span
+            class="hover:text-yellow-400 cursor-pointer transition-colors duration-200 flex items-center px-2 py-1"
           >
             Admin
-          </RouterLink>
+            <svg
+              class="ml-1 w-4 h-4 transform group-hover:rotate-180 transition-transform duration-200"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+            >
+              <path d="M19 9l-7 7-7-7" />
+            </svg>
+          </span>
+          <ul
+            class="absolute left-0 mt-1 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-20 min-w-[160px]
+                   opacity-0 translate-y-2 group-hover:translate-y-0 group-hover:opacity-100
+                   transition-all duration-200 ease-out
+                   pointer-events-none group-hover:pointer-events-auto"
+          >
+            <li><RouterLink to="/admin/users" class="block px-4 py-2 text-sm hover:bg-gray-800 hover:text-yellow-400 transition">Manage Users</RouterLink></li>
+            <li><RouterLink to="/admin/submissions" class="block px-4 py-2 text-sm hover:bg-gray-800 hover:text-yellow-400 transition">Manage Submissions</RouterLink></li>
+            <li><RouterLink to="/admin/reviews" class="block px-4 py-2 text-sm hover:bg-gray-800 hover:text-yellow-400 transition">Manage Reviews</RouterLink></li>
+            <li><RouterLink to="/admin/events" class="block px-4 py-2 text-sm hover:bg-gray-800 hover:text-yellow-400 transition">Manage Events</RouterLink></li>
+          </ul>
         </li>
 
         <!-- Chair Dropdown -->
@@ -77,22 +96,8 @@
                    transition-all duration-200 ease-out
                    pointer-events-none group-hover:pointer-events-auto"
           >
-            <li>
-              <RouterLink
-                to="/chair/reviewers"
-                class="block px-4 py-2 text-sm hover:bg-gray-800 hover:text-yellow-400 transition"
-              >
-                Manage Reviewers
-              </RouterLink>
-            </li>
-            <li>
-              <RouterLink
-                to="/chair/assign"
-                class="block px-4 py-2 text-sm hover:bg-gray-800 hover:text-yellow-400 transition"
-              >
-                Assign Papers
-              </RouterLink>
-            </li>
+            <li><RouterLink to="/chair/reviewers" class="block px-4 py-2 text-sm hover:bg-gray-800 hover:text-yellow-400 transition">Manage Reviewers</RouterLink></li>
+            <li><RouterLink to="/chair/assign" class="block px-4 py-2 text-sm hover:bg-gray-800 hover:text-yellow-400 transition">Assign Papers</RouterLink></li>
           </ul>
         </li>
 
@@ -119,23 +124,13 @@
                    transition-all duration-200 ease-out
                    pointer-events-none group-hover:pointer-events-auto"
           >
-            <li>
-              <RouterLink
-                to="/tasks/assigned"
-                class="block px-4 py-2 text-sm hover:bg-gray-800 hover:text-yellow-400 transition"
-              >
-                Assigned Papers
-              </RouterLink>
-            </li>
+            <li><RouterLink to="/tasks/assigned" class="block px-4 py-2 text-sm hover:bg-gray-800 hover:text-yellow-400 transition">Assigned Papers</RouterLink></li>
           </ul>
         </li>
 
         <!-- Auth Links -->
         <li v-if="!user">
-          <RouterLink
-            to="/login"
-            class="hover:text-yellow-400 transition-colors duration-200"
-          >
+          <RouterLink to="/login" class="hover:text-yellow-400 transition-colors duration-200">
             Login
           </RouterLink>
         </li>

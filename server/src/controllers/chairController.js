@@ -409,3 +409,68 @@ export async function getAllReviewsForSubmission(req, res) {
   res.json({ items: q.rows });
 }
 
+export async function updateSubmissionStatus(req, res) {
+  const { eventId, submissionId } = req.params;
+  const { status } = req.body;
+
+  if (!["approved", "rejected"].includes(status)) {
+    return res.status(400).json({ error: "Invalid status value" });
+  }
+
+  try {
+    const result = await appDb.query(
+      `UPDATE submissions
+       SET status = $1, updated_at = NOW()
+       WHERE id = $2 AND event_id = $3
+       RETURNING id, title, status`,
+      [status, submissionId, eventId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Submission not found" });
+    }
+
+    res.json({
+      message: `Submission ${status}`,
+      submission: result.rows[0]
+    });
+  } catch (err) {
+    console.error("Error updating submission status:", err);
+    res.status(500).json({ error: "Database error while updating submission" });
+  }
+}
+
+export async function getApprovedSubmissions(req, res) {
+  const uid = req.user?.uid;
+  if (!uid) return res.status(401).json({ error: "Not authenticated" });
+
+  try {
+    // Only include events where user is a chair
+    const { rows } = await appDb.query(`
+      SELECT
+        e.id AS event_id,
+        e.name AS event_name,
+        json_agg(
+          json_build_object(
+            'id', s.id,
+            'title', s.title,
+            'authors', s.authors,
+            'file_path', s.pdf_path
+          )
+        ) AS papers
+      FROM submissions s
+      JOIN events e ON e.id = s.event_id
+      JOIN event_roles er ON er.event_id = e.id
+      WHERE s.status = 'approved' AND er.user_id = $1 AND er.role = 'chair'
+      GROUP BY e.id, e.name
+      ORDER BY e.name ASC;
+    `, [uid]);
+
+    res.json({ items: rows });
+  } catch (err) {
+    console.error("Error fetching approved submissions:", err);
+    res.status(500).json({ error: "Failed to load approved submissions" });
+  }
+}
+
+
