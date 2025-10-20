@@ -204,3 +204,15 @@ export async function makeDecision(req, res) {
 
   res.json({ ok: true, decision: dec, submission_status: newStatus });
 }
+
+export async function getAllEvents(req, res) {
+  try {
+    const { rows } = await appDb.query(
+      "SELECT id, name, description, start_date, end_date FROM events ORDER BY start_date DESC;"
+    );
+    res.json({ items: rows });
+  } catch (err) {
+    console.error("Error fetching events:", err);
+    res.status(500).json({ error: "Failed to load events" });
+  }
+}

@@ -8,12 +8,13 @@ import {
   assignReviewer,
   submitReview,
   makeDecision,
+  getAllEvents
 } from '../controllers/eventController.js';
 
 const router = Router();
 
 // Mounted at /events in app.js
-
+router.get("/", getAllEvents);
 // Register for event (user becomes author role)
 router.post(
   '/:eventId/register',

@@ -8,16 +8,25 @@
       <!-- LEFT SIDE -->
       <div class="space-y-6">
         <!-- Event ID -->
-        <div>
-          <label class="block text-gray-800 font-medium mb-2">Event</label>
-          <select
-            v-model="eventId"
-            class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+      <div>
+        <label class="block text-gray-800 font-medium mb-2">Event</label>
+        <select
+          v-model="eventId"
+          class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+        >
+          <option disabled value="">Select Event</option>
+          <option
+            v-for="ev in events"
+            :key="ev.id"
+            :value="ev.id"
           >
-            <option disabled value="">Select Event ID</option>
-            <option v-for="id in [1, 2, 3, 4]" :key="id" :value="id">Event {{ id }}</option>
-          </select>
-        </div>
+            {{ ev.name }}
+            <span v-if="ev.start_date || ev.end_date">
+              — {{ formatEventDate(ev.start_date, ev.end_date) }}
+            </span>
+          </option>
+        </select>
+      </div>
 
         <!-- Title -->
         <div>
@@ -178,7 +187,7 @@
 </template>
 
 <script setup>
-import { ref } from "vue"
+import { ref, onMounted } from "vue"
 import axios from "axios"
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL
@@ -193,6 +202,8 @@ const files = ref([])
 const isDragging = ref(false)
 const message = ref("")
 const messageClass = ref("info")
+
+const events = ref([]);
 
 function addAuthor() {
   authors.value.push({ name: "", email: "" })
@@ -219,6 +230,24 @@ function formatSize(size) {
   const kb = size / 1024
   const mb = kb / 1024
   return mb > 1 ? mb.toFixed(2) + " MB" : kb.toFixed(2) + " KB"
+}
+
+onMounted(async () => {
+  try {
+    const res = await axios.get("/events", { withCredentials: true });
+    // Adjust key names if your backend returns differently
+    events.value = res.data.items || res.data || [];
+  } catch (err) {
+    console.error("Failed to load all events:", err);
+  }
+});
+
+function formatEventDate(start, end) {
+  if (!start && !end) return "";
+  const opts = { year: "numeric", month: "short", day: "numeric" };
+  const startDate = start ? new Date(start).toLocaleDateString("en-SG", opts) : "—";
+  const endDate = end ? new Date(end).toLocaleDateString("en-SG", opts) : "—";
+  return `${startDate} → ${endDate}`;
 }
 
 async function submitPaper() {
