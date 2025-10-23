@@ -608,6 +608,18 @@ function toggleReviewDropdown(subId, reviewerId) {
   expandedReviews.value = { ...expandedReviews.value, [subId]: set };
 }
 
+async function toggleEvent(eventId) {
+  if (openEventId.value === eventId) {
+    openEventId.value = null
+  } else {
+    openEventId.value = eventId
+    searchQ.value = ''
+    selectedToAdd.value = new Set()
+    dueDate.value = ''
+    await loadEventData(eventId)
+  }
+}
+
 async function loadReview(eventId, subId, reviewerId) {
   try {
     const { data } = await axios.get(`/chair/${eventId}/submissions/${subId}/reviews`);
