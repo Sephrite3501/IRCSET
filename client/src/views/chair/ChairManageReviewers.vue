@@ -75,7 +75,7 @@
         <!-- Search Bar -->
         <div class="flex gap-2 items-center">
           <input
-            v-model="searchQ"
+            v-model="searchQByEvent[ev.id]"
             placeholder="Search users by email or name…"
             class="input"
           />
@@ -89,7 +89,7 @@
           class="mt-3 max-h-48 overflow-auto border border-gray-200 rounded-lg bg-white shadow-sm divide-y divide-gray-100"
         >
           <button
-            v-for="u in userResults"
+            v-for="u in (userResultsByEvent[ev.id] || [])"
             :key="u.id"
             class="w-full text-left px-4 py-2 hover:bg-indigo-50 transition-colors text-sm"
             @click="addReviewer(ev.id, u.id)"
@@ -101,7 +101,7 @@
           </button>
 
           <div
-            v-if="userResults.length === 0 && searchQ"
+            v-if="(userResultsByEvent[ev.id]?.length === 0) && (searchQByEvent[ev.id])"
             class="p-3 text-sm text-gray-500 italic"
           >
             No matching users found.
@@ -121,8 +121,8 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 const events = ref([])
 const reviewersByEvent = ref({})
-const searchQ = ref('')
-const userResults = ref([])
+const searchQByEvent = ref({})      
+const userResultsByEvent = ref({})  
 const error = ref('')
 
 onMounted(async () => {
@@ -147,12 +147,16 @@ async function loadReviewers(eventId) {
 }
 
 async function searchUsers(eventId) {
-  if (!searchQ.value) return
+  const q = (searchQByEvent.value[eventId] || '').trim()
+  if (!q) {
+    userResultsByEvent.value[eventId] = []
+    return
+  }
   try {
-    const { data } = await axios.get(`/chair/${eventId}/users`, { params: { q: searchQ.value, limit: 20 } })
-    userResults.value = data.items || []
+    const { data } = await axios.get(`/chair/${eventId}/users`, { params: { q, limit: 20 } })
+    userResultsByEvent.value[eventId] = data.items || []
   } catch {
-    userResults.value = []
+    userResultsByEvent.value[eventId] = []
   }
 }
 
@@ -160,8 +164,8 @@ async function addReviewer(eventId, userId) {
   try {
     await axios.post(`/chair/${eventId}/reviewers`, { user_id: userId, role: 'reviewer' })
     await loadReviewers(eventId)
-    userResults.value = []
-    searchQ.value = ''
+    userResultsByEvent.value[eventId] = []
+    searchQByEvent.value[eventId] = ''
   } catch (e) {
     alert(e?.response?.data?.error || 'Failed to add')
   }

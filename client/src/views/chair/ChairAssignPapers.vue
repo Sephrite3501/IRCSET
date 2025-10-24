@@ -81,7 +81,11 @@
                 {{ (submissionsByEvent[ev.id]?.length || 0) }} submission(s)
               </div>
             </button>
-
+            
+            <div class="px-6 pb-3 text-sm text-gray-600">
+                Overall Avg Score:
+                <span class="font-medium text-indigo-700">{{ eventAvgScore(ev.id) }}</span>
+            </div>
             <!-- Expanded Panel -->
             <transition name="fade">
               <div
@@ -339,7 +343,7 @@
                         <!-- Search -->
                         <div class="md:col-span-2">
                           <input
-                            v-model="searchQ"
+                            v-model="searchQBySub[sub.id]"
                             placeholder="Search reviewers by name or email..."
                             class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
                           />
@@ -351,9 +355,9 @@
                               :key="u.id"
                               class="w-full text-left px-4 py-2 text-sm hover:bg-indigo-50 transition border-b last:border-0"
                               :class="{
-                                'bg-indigo-100': selectedToAdd.has(u.id),
+                                'bg-indigo-100': (selectedToAddBySub[sub.id]?.has(u.id) || false),
                               }"
-                              @click="toggleSelect(u.id)"
+                              @click="toggleSelect(sub.id, u.id)"
                             >
                               <div class="font-medium">
                                 {{ u.name || u.email }}
@@ -364,11 +368,7 @@
                             </button>
 
                             <div
-                              v-if="
-                                searchQ &&
-                                filteredReviewerPool(ev.id, sub.id).length ===
-                                  0
-                              "
+                              v-if="(searchQBySub[sub.id] || '') && filteredReviewerPool(ev.id, sub.id).length === 0"
                               class="p-3 text-sm text-gray-500 italic"
                             >
                               No matching reviewers found.
@@ -384,13 +384,13 @@
                             Optional due date
                           </label>
                           <input
-                            v-model="dueDate"
+                            v-model="dueDateBySub[sub.id]"
                             type="date"
                             class="border border-gray-300 rounded-lg px-3 py-2 w-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                           />
                           <button
                             class="mt-3 px-4 py-2 rounded-md bg-indigo-600 text-white text-sm w-full font-medium hover:bg-indigo-700 disabled:opacity-60 transition"
-                            :disabled="!selectedToAdd.size || loading"
+                            :disabled="!(selectedToAddBySub[sub.id]?.size) || loading"
                             @click="assignSelected(ev.id, sub.id)"
                           >
                             {{ loading ? "Assigning…" : "Assign Selected" }}
@@ -441,9 +441,9 @@ const submissionsByEvent = ref({}) // eventId -> [{ id,title,status,n_assigned,n
 const assignmentsBySub = ref({}) // subId -> [{ reviewer_id, email, name, review_status, due_at }, ...]
 
 // UI state for assigning
-const searchQ = ref('')
-const selectedToAdd = ref(new Set()) // reviewer ids to add to the currently open submission
-const dueDate = ref('')
+const searchQBySub = ref({})          // { [subId]: string }
+const selectedToAddBySub = ref({})     // { [subId]: Set<number> }
+const dueDateBySub = ref({})           // { [subId]: 'yyyy-mm-dd' }
 
 const expandedReviews = ref({}); // subId -> Set of reviewer_ids
 const reviewsBySub = ref({}); // subId -> { reviewer_id: reviewData }
@@ -479,9 +479,6 @@ async function loadMyEvents() {
 async function onToggleEvent(eventId, e) {
   if (!e.target?.open) return
   openEventId.value = eventId
-  searchQ.value = ''
-  selectedToAdd.value = new Set()
-  dueDate.value = ''
   await loadEventData(eventId)
 }
 
@@ -546,33 +543,35 @@ function fmt(dt) {
 }
 function filteredReviewerPool(eventId, subId) {
   const pool = reviewerPoolByEvent.value[eventId] || []
-  const q = (searchQ.value || '').trim().toLowerCase()
+  const q = (searchQBySub.value[subId] || '').trim().toLowerCase()
   const assignedIds = new Set((assignmentsBySub.value[subId] || []).map(a => a.reviewer_id))
   return pool
     .filter(u => !assignedIds.has(u.id))
     .filter(u => !q || (u.email?.toLowerCase().includes(q) || u.name?.toLowerCase().includes(q)))
 }
-function toggleSelect(uid) {
-  const s = new Set(selectedToAdd.value)
+function toggleSelect(subId, uid) {
+  const s = new Set(selectedToAddBySub.value[subId] || [])
   if (s.has(uid)) s.delete(uid); else s.add(uid)
-  selectedToAdd.value = s
+  selectedToAddBySub.value = { ...selectedToAddBySub.value, [subId]: s }
 }
 
 // Assign / Unassign
 async function assignSelected(eventId, subId) {
-  if (!selectedToAdd.value.size) return
+  const sel = selectedToAddBySub.value[subId] || new Set()
+  if (!sel.size) return
   loading.value = true
   try {
-    const reviewers = [...selectedToAdd.value]
+    const reviewers = [...sel]
     const payload = { reviewers }
-    if (dueDate.value) payload.due_at = new Date(dueDate.value).toISOString()
+    const due = dueDateBySub.value[subId]
+    if (due) payload.due_at = new Date(due).toISOString()
 
     await axios.post(`/chair/${eventId}/submissions/${subId}/assign`, payload)
 
     // refresh
-    selectedToAdd.value = new Set()
-    searchQ.value = ''
-    dueDate.value = ''
+    selectedToAddBySub.value = { ...selectedToAddBySub.value, [subId]: new Set() }
+    searchQBySub.value = { ...searchQBySub.value, [subId]: '' }
+    dueDateBySub.value = { ...dueDateBySub.value, [subId]: '' }
     await loadAssignments(eventId, subId)
     // also refresh the counts on the submission list
     await loadSubmissions(eventId)
@@ -613,9 +612,6 @@ async function toggleEvent(eventId) {
     openEventId.value = null
   } else {
     openEventId.value = eventId
-    searchQ.value = ''
-    selectedToAdd.value = new Set()
-    dueDate.value = ''
     await loadEventData(eventId)
   }
 }
@@ -656,6 +652,17 @@ async function updateStatus(eventId, subId, newStatus) {
   } finally {
     loading.value = false
   }
+}
+
+function eventAvgScore(eventId) {
+  const subs = submissionsByEvent.value[eventId] || []
+  if (!subs.length) return '—'
+  const valid = subs
+    .map(s => Number(s.avg_score))
+    .filter(n => Number.isFinite(n))
+  if (!valid.length) return '—'
+  const total = valid.reduce((a, b) => a + b, 0)
+  return (total / valid.length).toFixed(2)
 }
 </script>
 
