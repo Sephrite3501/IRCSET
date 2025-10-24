@@ -6,35 +6,21 @@
         <h1 class="text-3xl font-bold text-gray-900">
           Chair — Assign Reviewers
         </h1>
-        <button
-          class="text-sm text-red-500 font-medium hover:underline"
-          @click="logout"
-        >
+        <button class="text-sm text-red-500 font-medium hover:underline" @click="logout">
           Logout
         </button>
       </div>
 
       <!-- Error Banner -->
-      <div
-        v-if="errorMsg"
-        class="mb-6 px-4 py-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm"
-      >
+      <div v-if="errorMsg" class="mb-6 px-4 py-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
         {{ errorMsg }}
       </div>
 
-            <!-- Search -->
+      <!-- Search -->
       <div class="mb-6 flex items-center gap-3">
-        <input
-          v-model="searchQGlobal"
-          type="text"
-          placeholder="Search submissions by title..."
-          class="flex-1 border rounded-md px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-400"
-        />
-        <button
-          v-if="searchQGlobal"
-          @click="searchQGlobal = ''"
-          class="text-sm text-gray-500 hover:text-gray-700"
-        >
+        <input v-model="searchQGlobal" type="text" placeholder="Search submissions by title..."
+          class="flex-1 border rounded-md px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-400" />
+        <button v-if="searchQGlobal" @click="searchQGlobal = ''" class="text-sm text-gray-500 hover:text-gray-700">
           ✕ Clear
         </button>
       </div>
@@ -48,22 +34,16 @@
         <div v-if="!events.length" class="text-gray-500 italic">
           You are not assigned as chair in any event.
         </div>
-        <RouterLink
-            to="/chair/approved-papers"
-            class="text-sm text-indigo-600 hover:text-indigo-800 mt-1"
-          >
-            View All Approved Papers
+        <RouterLink to="/chair/approved-papers" class="text-sm text-indigo-600 hover:text-indigo-800 mt-1">
+          View All Approved Papers
         </RouterLink>
 
         <!-- Events -->
         <div v-for="ev in events" :key="ev.id" class="mb-8">
           <div
-            class="rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors duration-150 shadow-sm"
-          >
-            <button
-              @click="toggleEvent(ev.id)"
-              class="w-full flex justify-between items-center text-left p-5 focus:outline-none"
-            >
+            class="rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors duration-150 shadow-sm">
+            <button @click="toggleEvent(ev.id)"
+              class="w-full flex justify-between items-center text-left p-5 focus:outline-none">
               <div>
                 <div class="font-semibold text-gray-900 text-lg">
                   {{ ev.name }}
@@ -75,48 +55,39 @@
                   </span>
                 </div>
               </div>
-              <div
-                class="text-xs text-gray-600 bg-white border rounded-md px-3 py-1 shadow-sm"
-              >
+              <div class="text-xs text-gray-600 bg-white border rounded-md px-3 py-1 shadow-sm">
                 {{ (submissionsByEvent[ev.id]?.length || 0) }} submission(s)
               </div>
             </button>
-            
-            <div class="px-6 pb-3 text-sm text-gray-600">
+
+            <div class="px-6 pb-3 flex items-center gap-3">
+              <div class="text-sm text-gray-600">
                 Overall Avg Score:
                 <span class="font-medium text-indigo-700">{{ eventAvgScore(ev.id) }}</span>
+              </div>
+
+              <button
+                class="ml-auto text-xs px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                :disabled="loading || !(submissionsByEvent[ev.id]?.length)" @click="massApproveAPI(ev.id)">
+                Approve All
+              </button>
             </div>
             <!-- Expanded Panel -->
             <transition name="fade">
-              <div
-                v-if="openEventId === ev.id"
-                class="px-6 pb-8 bg-white border-t border-gray-200 rounded-b-xl"
-              >
-                <div
-                  v-if="filteredSubmissions(ev.id).length"
-                  class="divide-y divide-gray-200"
-                >
+              <div v-if="openEventId === ev.id" class="px-6 pb-8 bg-white border-t border-gray-200 rounded-b-xl">
+                <div v-if="filteredSubmissions(ev.id).length" class="divide-y divide-gray-200">
                   <!-- Submissions -->
-                  <div
-                    v-for="sub in filteredSubmissions(ev.id)"
-                    :key="sub.id"
-                    class="py-6"
-                  >
+                  <div v-for="sub in filteredSubmissions(ev.id)" :key="sub.id" class="py-6">
                     <!-- Paper Header -->
-                    <div
-                      class="flex flex-col md:flex-row md:items-center md:justify-between gap-2"
-                    >
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                       <div>
                         <h3 class="font-semibold text-gray-900 flex items-center gap-3">
                           {{ sub.title }}
-                          <span
-                            class="text-xs font-medium px-2 py-0.5 rounded"
-                            :class="{
+                          <span class="text-xs font-medium px-2 py-0.5 rounded" :class="{
                               'bg-green-100 text-green-700': sub.status === 'approved',
                               'bg-red-100 text-red-700': sub.status === 'rejected',
                               'bg-gray-100 text-gray-700': !['approved','rejected'].includes(sub.status)
-                            }"
-                          >
+                            }">
                             {{ sub.status }}
                           </span>
                         </h3>
@@ -132,20 +103,16 @@
                       <!-- Approve / Reject Buttons -->
                       <div class="flex gap-2 mt-2 md:mt-0">
                         <!-- Approve -->
-                        <button
-                          @click="updateStatus(ev.id, sub.id, 'approved')"
+                        <button @click="updateStatus(ev.id, sub.id, 'approved')"
                           class="px-3 py-1 text-xs rounded bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                          :disabled="loading || sub.n_submitted < sub.n_assigned"
-                        >
+                          :disabled="loading || sub.n_submitted < sub.n_assigned">
                           Approve
                         </button>
 
                         <!-- Reject -->
-                        <button
-                          @click="updateStatus(ev.id, sub.id, 'rejected')"
+                        <button @click="updateStatus(ev.id, sub.id, 'rejected')"
                           class="px-3 py-1 text-xs rounded bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                          :disabled="loading || sub.n_submitted < sub.n_assigned"
-                        >
+                          :disabled="loading || sub.n_submitted < sub.n_assigned">
                           Reject
                         </button>
                       </div>
@@ -153,30 +120,18 @@
 
                     <!-- Current Reviewers -->
                     <div class="mt-4">
-                      <h4
-                        class="text-sm font-semibold text-gray-700 mb-1 border-b border-gray-200 pb-1"
-                      >
+                      <h4 class="text-sm font-semibold text-gray-700 mb-1 border-b border-gray-200 pb-1">
                         Current Reviewers
                       </h4>
-                      <div
-                        class="bg-slate-50 border border-gray-200 rounded-lg overflow-hidden"
-                      >
-                        <div
-                          v-if="!assignmentsBySub[sub.id]?.length"
-                          class="p-4 text-gray-500 text-sm italic"
-                        >
+                      <div class="bg-slate-50 border border-gray-200 rounded-lg overflow-hidden">
+                        <div v-if="!assignmentsBySub[sub.id]?.length" class="p-4 text-gray-500 text-sm italic">
                           None assigned yet.
                         </div>
 
                         <div v-else class="divide-y">
-                          <div
-                            v-for="a in assignmentsBySub[sub.id]"
-                            :key="a.reviewer_id"
-                            class="px-4 py-3 bg-white hover:bg-slate-50 transition-colors"
-                          >
-                            <div
-                              class="flex flex-col md:flex-row md:items-center md:justify-between gap-2"
-                            >
+                          <div v-for="a in assignmentsBySub[sub.id]" :key="a.reviewer_id"
+                            class="px-4 py-3 bg-white hover:bg-slate-50 transition-colors">
+                            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                               <div>
                                 <p class="text-sm font-medium text-gray-800">
                                   {{ a.name || a.email }}
@@ -190,26 +145,19 @@
                               </div>
 
                               <div class="flex gap-3 text-xs">
-                                <button
-                                  class="text-indigo-600 hover:underline"
-                                  @click="
+                                <button class="text-indigo-600 hover:underline" @click="
                                     toggleReviewDropdown(sub.id, a.reviewer_id)
-                                  "
-                                >
+                                  ">
                                   {{
-                                    expandedReviews[sub.id]?.has(a.reviewer_id)
-                                      ? "Hide"
-                                      : "Show"
+                                  expandedReviews[sub.id]?.has(a.reviewer_id)
+                                  ? "Hide"
+                                  : "Show"
                                   }}
                                   Review
                                 </button>
-                                <button
-                                  class="text-red-500 hover:underline"
-                                  :disabled="loading"
-                                  @click="
+                                <button class="text-red-500 hover:underline" :disabled="loading" @click="
                                     unassignOne(ev.id, sub.id, a.reviewer_id)
-                                  "
-                                >
+                                  ">
                                   Remove
                                 </button>
                               </div>
@@ -217,108 +165,75 @@
 
                             <!-- Review Dropdown -->
                             <transition name="fade">
-                              <div
-                                v-if="
+                              <div v-if="
                                   expandedReviews[sub.id]?.has(a.reviewer_id)
-                                "
-                                class="mt-4 p-4 bg-slate-50 border border-gray-200 rounded-lg"
-                              >
-                                <div
-                                  v-if="
+                                " class="mt-4 p-4 bg-slate-50 border border-gray-200 rounded-lg">
+                                <div v-if="
                                     !reviewsBySub[sub.id]?.[a.reviewer_id]
-                                  "
-                                >
-                                  <button
-                                    class="text-xs text-indigo-600 underline"
-                                    @click="
+                                  ">
+                                  <button class="text-xs text-indigo-600 underline" @click="
                                       loadReview(ev.id, sub.id, a.reviewer_id)
-                                    "
-                                  >
+                                    ">
                                     Load review
                                   </button>
                                 </div>
 
-                                <div
-                                  v-else
-                                  class="bg-white border rounded-lg p-5 mt-2 shadow-sm"
-                                >
-                                  <div
-                                    class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5"
-                                  >
-                                    <div
-                                      v-for="metric in [
+                                <div v-else class="bg-white border rounded-lg p-5 mt-2 shadow-sm">
+                                  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                                    <div v-for="metric in [
                                         'Technical',
                                         'Relevance',
                                         'Innovation',
                                         'Writing',
-                                      ]"
-                                      :key="metric"
-                                      class="text-center border rounded-lg p-3 bg-slate-50"
-                                    >
-                                      <p
-                                        class="text-xs text-gray-500 uppercase tracking-wide"
-                                      >
+                                      ]" :key="metric" class="text-center border rounded-lg p-3 bg-slate-50">
+                                      <p class="text-xs text-gray-500 uppercase tracking-wide">
                                         {{ metric }}
                                       </p>
-                                      <p
-                                        class="text-lg font-semibold text-gray-800"
-                                      >
+                                      <p class="text-lg font-semibold text-gray-800">
                                         {{
-                                          reviewsBySub[sub.id][a.reviewer_id][
-                                            'score_' + metric.toLowerCase()
-                                          ] ?? "—"
+                                        reviewsBySub[sub.id][a.reviewer_id][
+                                        'score_' + metric.toLowerCase()
+                                        ] ?? "—"
                                         }}
                                       </p>
                                     </div>
                                   </div>
 
                                   <div class="text-center mb-5">
-                                    <p
-                                      class="text-sm font-medium text-gray-600"
-                                    >
+                                    <p class="text-sm font-medium text-gray-600">
                                       Overall Score
                                     </p>
-                                    <p
-                                      class="text-3xl font-bold text-indigo-700"
-                                    >
+                                    <p class="text-3xl font-bold text-indigo-700">
                                       {{
-                                        reviewsBySub[sub.id][a.reviewer_id]
-                                          .score_overall ?? "—"
+                                      reviewsBySub[sub.id][a.reviewer_id]
+                                      .score_overall ?? "—"
                                       }}
                                     </p>
                                   </div>
 
-                                  <div
-                                    class="grid grid-cols-1 md:grid-cols-2 gap-5"
-                                  >
+                                  <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                                     <div>
-                                      <label
-                                        class="text-sm font-semibold text-gray-700 block mb-1"
-                                      >
+                                      <label class="text-sm font-semibold text-gray-700 block mb-1">
                                         Comments for Author
                                       </label>
                                       <div
-                                        class="border border-gray-200 bg-gray-50 rounded-lg p-3 text-sm text-gray-800 whitespace-pre-line h-28 overflow-y-auto"
-                                      >
+                                        class="border border-gray-200 bg-gray-50 rounded-lg p-3 text-sm text-gray-800 whitespace-pre-line h-28 overflow-y-auto">
                                         {{
-                                          reviewsBySub[sub.id][a.reviewer_id]
-                                            .comments_for_author || "—"
+                                        reviewsBySub[sub.id][a.reviewer_id]
+                                        .comments_for_author || "—"
                                         }}
                                       </div>
                                     </div>
 
                                     <div>
-                                      <label
-                                        class="text-sm font-semibold text-gray-700 block mb-1"
-                                      >
+                                      <label class="text-sm font-semibold text-gray-700 block mb-1">
                                         Comments for Committee
                                       </label>
                                       <div
-                                        class="border border-gray-200 bg-gray-50 rounded-lg p-3 text-sm text-gray-800 whitespace-pre-line h-28 overflow-y-auto"
-                                      >
+                                        class="border border-gray-200 bg-gray-50 rounded-lg p-3 text-sm text-gray-800 whitespace-pre-line h-28 overflow-y-auto">
                                         {{
-                                          reviewsBySub[sub.id][a.reviewer_id]
-                                            .comments_committee || "—"
+                                        reviewsBySub[sub.id][a.reviewer_id]
+                                        .comments_committee || "—"
                                         }}
                                       </div>
                                     </div>
@@ -337,28 +252,17 @@
                         Add Reviewers
                       </h4>
 
-                      <div
-                        class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2 items-start"
-                      >
+                      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2 items-start">
                         <!-- Search -->
                         <div class="md:col-span-2">
-                          <input
-                            v-model="searchQBySub[sub.id]"
-                            placeholder="Search reviewers by name or email..."
-                            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-                          />
-                          <div
-                            class="mt-2 max-h-48 overflow-auto bg-white border border-gray-200 rounded-lg shadow-sm"
-                          >
-                            <button
-                              v-for="u in filteredReviewerPool(ev.id, sub.id)"
-                              :key="u.id"
+                          <input v-model="searchQBySub[sub.id]" placeholder="Search reviewers by name or email..."
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" />
+                          <div class="mt-2 max-h-48 overflow-auto bg-white border border-gray-200 rounded-lg shadow-sm">
+                            <button v-for="u in filteredReviewerPool(ev.id, sub.id)" :key="u.id"
                               class="w-full text-left px-4 py-2 text-sm hover:bg-indigo-50 transition border-b last:border-0"
                               :class="{
                                 'bg-indigo-100': (selectedToAddBySub[sub.id]?.has(u.id) || false),
-                              }"
-                              @click="toggleSelect(sub.id, u.id)"
-                            >
+                              }" @click="toggleSelect(sub.id, u.id)">
                               <div class="font-medium">
                                 {{ u.name || u.email }}
                               </div>
@@ -367,10 +271,8 @@
                               </div>
                             </button>
 
-                            <div
-                              v-if="(searchQBySub[sub.id] || '') && filteredReviewerPool(ev.id, sub.id).length === 0"
-                              class="p-3 text-sm text-gray-500 italic"
-                            >
+                            <div v-if="(searchQBySub[sub.id] || '') && filteredReviewerPool(ev.id, sub.id).length === 0"
+                              class="p-3 text-sm text-gray-500 italic">
                               No matching reviewers found.
                             </div>
                           </div>
@@ -378,21 +280,15 @@
 
                         <!-- Assign Button -->
                         <div>
-                          <label
-                            class="text-xs text-gray-600 block mb-1 font-medium"
-                          >
+                          <label class="text-xs text-gray-600 block mb-1 font-medium">
                             Optional due date
                           </label>
-                          <input
-                            v-model="dueDateBySub[sub.id]"
-                            type="date"
-                            class="border border-gray-300 rounded-lg px-3 py-2 w-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                          />
+                          <input v-model="dueDateBySub[sub.id]" type="date"
+                            class="border border-gray-300 rounded-lg px-3 py-2 w-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
                           <button
                             class="mt-3 px-4 py-2 rounded-md bg-indigo-600 text-white text-sm w-full font-medium hover:bg-indigo-700 disabled:opacity-60 transition"
                             :disabled="!(selectedToAddBySub[sub.id]?.size) || loading"
-                            @click="assignSelected(ev.id, sub.id)"
-                          >
+                            @click="assignSelected(ev.id, sub.id)">
                             {{ loading ? "Assigning…" : "Assign Selected" }}
                           </button>
                         </div>
@@ -401,10 +297,7 @@
                   </div>
                 </div>
 
-                <p
-                  v-else
-                  class="text-gray-500 italic mt-6 text-sm text-center border-t pt-4"
-                >
+                <p v-else class="text-gray-500 italic mt-6 text-sm text-center border-t pt-4">
                   No submissions in this event yet.
                 </p>
               </div>
@@ -664,6 +557,26 @@ function eventAvgScore(eventId) {
   const total = valid.reduce((a, b) => a + b, 0)
   return (total / valid.length).toFixed(2)
 }
+
+async function massApproveAPI(eventId) {
+  const subs = submissionsByEvent.value[eventId] || []
+  const pending = subs.filter(s => s.status !== 'approved').length
+  if (!pending) { alert('No submissions to approve.'); return }
+
+  if (!confirm(`Approve all eligible submissions in this event? (${pending} total pending)`)) return
+
+  loading.value = true
+  try {
+    const { data } = await axios.post(`/chair/${eventId}/submissions/approve-all`)
+    // data: { ok, approved_count, approved_ids }
+    await loadSubmissions(eventId) // refresh badges/statuses
+  } catch (e) {
+    alert(e?.response?.data?.error || 'Bulk approve failed')
+  } finally {
+    loading.value = false
+  }
+}
+
 </script>
 
 <style scoped>

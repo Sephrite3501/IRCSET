@@ -19,6 +19,7 @@ import {
   getAllReviewsForSubmission,
   updateSubmissionStatus,
   getApprovedSubmissions,
+  approveAllForEvent,
 } from '../controllers/chairController.js';
 
 import {
@@ -124,6 +125,14 @@ r.put(
   requireAuth,
   requireEventRole('chair'),
   updateSubmissionStatus
+);
+
+r.post(
+  '/:eventId/submissions/approve-all',
+  requireAuth,
+  requireEventRole('chair'),
+  writeLimiter,
+  approveAllForEvent
 );
 
 r.get("/approved-submissions", requireAuth, getApprovedSubmissions);
