@@ -5,7 +5,7 @@ import Navbar from './components/Navbar.vue';
 
 <template>
   <div>
-    <Navbar />
+    <Navbar v-if="!$route.meta.publicStandalone" />
     <router-view />
   </div>
 </template>

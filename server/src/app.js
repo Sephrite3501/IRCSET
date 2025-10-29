@@ -19,6 +19,7 @@ import users from './routes/users.js';
 import finalRoutes from './routes/final.js';
 import fileDownloadRouter from './routes/fileDownload.js';
 import eventsRouter from './routes/event.js';
+import externalRoutes from './routes/external.js';
 import { fileURLToPath } from 'url'; 
 
 import dotenv from 'dotenv';
@@ -123,10 +124,11 @@ app.use('/submissions', submissions);
 app.use('/chair', chair);
 app.use('/reviewer', reviewer);
 app.use('/admin', admin);
-app.use('/submissions', finalRoutes);
+app.use('/final', finalRoutes);
 app.use(fileDownloadRouter);
 app.use('/events', eventsRouter);
 app.use('/users', users);
+app.use("/external", externalRoutes);
 
 
 

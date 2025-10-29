@@ -2,31 +2,29 @@
   <div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col items-center py-12">
     <h1 class="text-3xl font-bold text-gray-900 mb-10">Author — Submit Paper</h1>
 
-    <div
-      class="w-11/12 max-w-6xl bg-white rounded-2xl shadow-xl p-10 grid grid-cols-1 md:grid-cols-2 gap-10"
-    >
+    <div class="w-11/12 max-w-6xl bg-white rounded-2xl shadow-xl p-10 grid grid-cols-1 md:grid-cols-2 gap-10">
       <!-- LEFT SIDE -->
       <div class="space-y-6">
-        <!-- Event ID -->
-      <div>
-        <label class="block text-gray-800 font-medium mb-2">Event</label>
-        <select
-          v-model="eventId"
-          class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-        >
-          <option disabled value="">Select Event</option>
-          <option
-            v-for="ev in events"
-            :key="ev.id"
-            :value="ev.id"
+        <!-- Event Selection -->
+        <div>
+          <label class="block text-gray-800 font-medium mb-2">Event</label>
+          <select
+            v-model="eventId"
+            class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
           >
-            {{ ev.name }}
-            <span v-if="ev.start_date || ev.end_date">
-              — {{ formatEventDate(ev.start_date, ev.end_date) }}
-            </span>
-          </option>
-        </select>
-      </div>
+            <option disabled value="">Select Event</option>
+            <option
+              v-for="ev in events"
+              :key="ev.id"
+              :value="ev.id"
+            >
+              {{ ev.name }}
+              <span v-if="ev.start_date || ev.end_date">
+                — {{ formatEventDate(ev.start_date, ev.end_date) }}
+              </span>
+            </option>
+          </select>
+        </div>
 
         <!-- Title -->
         <div>
@@ -45,8 +43,8 @@
           <textarea
             v-model="abstract"
             rows="4"
-            placeholder="Summarize your paper in a short abstract..."
-            class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none transition"
+            placeholder="Summarize your paper..."
+            class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 resize-none transition"
           ></textarea>
         </div>
 
@@ -57,11 +55,9 @@
             v-model="keywords"
             type="text"
             placeholder="e.g., cybersecurity, AI, IoT"
-            class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+            class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition"
           />
-          <p class="text-sm text-gray-500 mt-1">
-            Separate multiple keywords with commas.
-          </p>
+          <p class="text-sm text-gray-500 mt-1">Separate multiple keywords with commas.</p>
         </div>
 
         <!-- IRC Member Email -->
@@ -71,33 +67,46 @@
             v-model="ircEmail"
             type="email"
             placeholder="Enter IRC member email"
-            class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+            class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition"
           />
         </div>
 
         <!-- Authors -->
         <div>
           <label class="block text-gray-800 font-medium mb-3">Authors</label>
-          <div v-for="(author, index) in authors" :key="index" class="flex space-x-2 mb-3">
+
+          <div
+            v-for="(author, index) in authors"
+            :key="index"
+            class="flex flex-col space-y-2 mb-4 border p-4 rounded-lg bg-slate-50"
+          >
+            <div class="flex space-x-2">
+              <input
+                v-model="author.name"
+                type="text"
+                placeholder="Author name"
+                class="flex-1 border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition"
+              />
+              <input
+                v-model="author.email"
+                type="email"
+                placeholder="Email"
+                class="flex-1 border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition"
+              />
+            </div>
             <input
-              v-model="author.name"
+              v-model="author.organization"
               type="text"
-              placeholder="Author name"
-              class="flex-1 border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-            />
-            <input
-              v-model="author.email"
-              type="email"
-              placeholder="Email"
-              class="flex-1 border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+              placeholder="Organization / Institution"
+              class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition"
             />
             <button
               type="button"
               @click="removeAuthor(index)"
-              class="text-red-500 hover:text-red-700 font-semibold px-2"
+              class="self-end text-red-500 hover:text-red-700 text-sm font-semibold mt-1"
               title="Remove author"
             >
-              ✕
+              ✕ Remove
             </button>
           </div>
 
@@ -111,7 +120,7 @@
         </div>
       </div>
 
-      <!-- RIGHT SIDE -->
+      <!-- RIGHT SIDE (File Upload + Submit) -->
       <div class="flex flex-col items-center justify-start">
         <!-- Drop Zone -->
         <div
@@ -197,16 +206,15 @@ const title = ref("")
 const ircEmail = ref("")
 const abstract = ref("")
 const keywords = ref("")
-const authors = ref([{ name: "", email: "" }])
+const authors = ref([{ name: "", email: "", organization: "" }])
 const files = ref([])
 const isDragging = ref(false)
 const message = ref("")
 const messageClass = ref("info")
-
-const events = ref([]);
+const events = ref([])
 
 function addAuthor() {
-  authors.value.push({ name: "", email: "" })
+  authors.value.push({ name: "", email: "", organization: "" })
 }
 
 function removeAuthor(index) {
@@ -215,15 +223,11 @@ function removeAuthor(index) {
 
 function handleDrop(e) {
   isDragging.value = false
-  if (e.dataTransfer.files.length) {
-    files.value = [e.dataTransfer.files[0]]
-  }
+  if (e.dataTransfer.files.length) files.value = [e.dataTransfer.files[0]]
 }
 
 function handleFileSelect(e) {
-  if (e.target.files.length) {
-    files.value = [e.target.files[0]]
-  }
+  if (e.target.files.length) files.value = [e.target.files[0]]
 }
 
 function formatSize(size) {
@@ -234,20 +238,19 @@ function formatSize(size) {
 
 onMounted(async () => {
   try {
-    const res = await axios.get("/events", { withCredentials: true });
-    // Adjust key names if your backend returns differently
-    events.value = res.data.items || res.data || [];
+    const res = await axios.get("/events", { withCredentials: true })
+    events.value = res.data.items || res.data || []
   } catch (err) {
-    console.error("Failed to load all events:", err);
+    console.error("Failed to load events:", err)
   }
-});
+})
 
 function formatEventDate(start, end) {
-  if (!start && !end) return "";
-  const opts = { year: "numeric", month: "short", day: "numeric" };
-  const startDate = start ? new Date(start).toLocaleDateString("en-SG", opts) : "—";
-  const endDate = end ? new Date(end).toLocaleDateString("en-SG", opts) : "—";
-  return `${startDate} → ${endDate}`;
+  if (!start && !end) return ""
+  const opts = { year: "numeric", month: "short", day: "numeric" }
+  const s = start ? new Date(start).toLocaleDateString("en-SG", opts) : "—"
+  const e = end ? new Date(end).toLocaleDateString("en-SG", opts) : "—"
+  return `${s} → ${e}`
 }
 
 async function submitPaper() {
@@ -270,7 +273,7 @@ async function submitPaper() {
       headers: { "X-CSRF-Token": token },
       method: "POST",
       body: fd,
-      credentials: "include",
+      credentials: "include"
     })
 
     const data = await res.json().catch(() => null)

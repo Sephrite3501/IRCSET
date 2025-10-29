@@ -32,10 +32,14 @@ export async function createSubmission(req, res) {
         const parsed = JSON.parse(req.body.authors);
         if (Array.isArray(parsed)) {
           authors = parsed
-            .filter(a => a && typeof a.name === 'string' && a.name.trim())
+            .filter(a => a && typeof a.name === "string" && a.name.trim())
             .map(a => ({
               name: cleanText(a.name.trim(), { max: 100 }),
-              email: a.email && isEmail(a.email) ? a.email.trim() : null
+              email: a.email && isEmail(a.email) ? a.email.trim() : null,
+              organization:
+                a.organization && typeof a.organization === "string"
+                  ? cleanText(a.organization.trim(), { max: 150 })
+                  : null
             }));
         }
       } catch {

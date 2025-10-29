@@ -29,6 +29,7 @@ import {
 } from '../controllers/decisionsController.js';
 
 import { listReviewsForChair } from '../controllers/reviewsReadController.js';
+import { getExternalReviewsForSubmission } from '../controllers/externalController.js';
 
 const r = Router();
 
@@ -136,6 +137,6 @@ r.post(
 );
 
 r.get("/approved-submissions", requireAuth, getApprovedSubmissions);
-
+r.get('/:eventId/submissions/:subId/external-reviews', getExternalReviewsForSubmission);
 
 export default r;

@@ -8,7 +8,7 @@
         <h1
           class="text-2xl font-semibold tracking-wide text-yellow-400 group-hover:text-yellow-300 transition-colors duration-200"
         >
-          IRCSET
+          IRC-SET
         </h1>
       </RouterLink>
 

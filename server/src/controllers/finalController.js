@@ -41,7 +41,7 @@ export async function uploadFinal(req, res) {
     if (!isOwner && !isAdmin) return res.status(403).json({ error: 'Forbidden' });
 
     // Only when final is required (allow idempotent re-upload if already final_submitted? keep your rule)
-    if (sub.status !== 'final_required' && sub.status !== 'final_submitted') {
+    if (sub.status !== 'final_required' && sub.status !== 'final_submitted' && sub.status !== 'approved') {
       return res.status(409).json({ error: `Invalid status ${sub.status}; final upload not allowed` });
     }
 

@@ -26,22 +26,16 @@
         </div>
       </div>
 
-      <!-- RIGHT: Review Information + Form -->
+      <!-- RIGHT: Review Form -->
       <div class="md:w-1/3 p-8 overflow-y-auto">
-        <!-- Header -->
         <div class="flex items-start justify-between mb-6">
           <h1 class="text-2xl font-bold text-gray-900 leading-snug">
-            Review — <span class="text-indigo-600">{{ paper?.title || "Loading..." }}</span>
+            External Review — 
+            <span class="text-indigo-600">{{ paper?.title || "Loading..." }}</span>
           </h1>
-          <RouterLink
-            to="/tasks/assigned"
-            class="text-sm text-indigo-600 hover:text-indigo-800 mt-1"
-          >
-            ← Back
-          </RouterLink>
         </div>
 
-        <!-- Paper Meta Info -->
+        <!-- Metadata -->
         <div v-if="paper" class="space-y-4 mb-8">
           <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
             <p class="text-sm text-gray-700">
@@ -50,16 +44,14 @@
             <p class="text-sm text-gray-700">
               <strong>Status:</strong>
               <span
-                :class="[
+                :class="[ 
                   'px-2 py-0.5 rounded text-xs font-semibold',
                   paper.status === 'submitted'
                     ? 'bg-blue-100 text-blue-700'
-                    : paper.status === 'under_review'
-                    ? 'bg-yellow-100 text-yellow-700'
-                    : 'bg-gray-100 text-gray-700'
+                    : 'bg-yellow-100 text-yellow-700'
                 ]"
               >
-                {{ paper.status }}
+                {{ paper.status || '—' }}
               </span>
             </p>
           </div>
@@ -76,9 +68,6 @@
                 <template v-if="a.email">
                   — <span class="text-gray-500">{{ a.email }}</span>
                 </template>
-                <template v-if="a.organization">
-                  <br /><span class="text-gray-600 text-sm italic">{{ a.organization }}</span>
-                </template>
               </li>
             </ul>
           </div>
@@ -92,23 +81,6 @@
             <p class="text-sm text-gray-800 leading-relaxed whitespace-pre-line">
               {{ paper.abstract }}
             </p>
-          </div>
-
-          <!-- Keywords -->
-          <div
-            v-if="paper.keywords"
-            class="bg-slate-50 border border-slate-200 rounded-lg p-3"
-          >
-            <h3 class="text-xs font-semibold text-gray-600 uppercase mb-1">Keywords</h3>
-            <div class="flex flex-wrap gap-2">
-              <span
-                v-for="(kw, i) in paper.keywords.split(',')"
-                :key="i"
-                class="bg-indigo-100 text-indigo-700 text-xs font-medium px-2 py-1 rounded-full"
-              >
-                {{ kw.trim() }}
-              </span>
-            </div>
           </div>
         </div>
 
@@ -140,9 +112,8 @@
               <label class="block text-sm font-medium text-gray-700 mb-1">Comments for Author</label>
               <textarea
                 v-model="commentsAuthor"
-                rows="6"
-                placeholder="Provide constructive feedback for the author..."
-                class="w-full border border-gray-300 rounded-md p-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 resize-y min-h-[150px]"
+                rows="5"
+                class="w-full border border-gray-300 rounded-md p-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 resize-y"
                 required
               ></textarea>
             </div>
@@ -151,9 +122,8 @@
               <label class="block text-sm font-medium text-gray-700 mb-1">Comments for Committee</label>
               <textarea
                 v-model="commentsCommittee"
-                rows="6"
-                placeholder="Private notes for the committee..."
-                class="w-full border border-gray-300 rounded-md p-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 resize-y min-h-[150px]"
+                rows="5"
+                class="w-full border border-gray-300 rounded-md p-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 resize-y"
               ></textarea>
             </div>
 
@@ -162,11 +132,7 @@
               :disabled="submitting"
               class="w-full bg-indigo-600 text-white font-semibold py-2 rounded-md hover:bg-indigo-700 transition disabled:opacity-50"
             >
-              {{
-                submitting
-                  ? (paper?.review_status === "submitted" ? "Updating..." : "Submitting...")
-                  : (paper?.review_status === "submitted" ? "Edit Review" : "Submit Review")
-              }}
+              {{ submitting ? "Submitting..." : "Submit Review" }}
             </button>
 
             <p v-if="message" :class="messageClass" class="text-sm mt-2">
@@ -179,40 +145,22 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script setup>
 import { ref, onMounted, computed } from "vue";
-import { useRoute, RouterLink } from "vue-router";
+import { useRoute } from "vue-router";
 import axios from "axios";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 const route = useRoute();
-const eventId = route.params.eventId as string;
-const paperId = route.params.paperId as string;
+const token = route.params.token;
 
-interface Author {
-  name: string;
-  email: string;
-  organization?: string;
-}
+const paper = ref(null);
+const eventId = ref(null);
 
-interface Paper {
-  id: number;
-  title: string;
-  abstract?: string;
-  keywords?: string;
-  pdf_path?: string;
-  status: string;
-  event_name: string;
-  authors?: Author[] | string;
-  review_status?: string;
-  existing_review?: any;
-}
-
-const paper = ref<Paper | null>(null);
-const scoreTechnical = ref<number>(1);
-const scoreRelevance = ref<number>(1);
-const scoreInnovation = ref<number>(1);
-const scoreWriting = ref<number>(1);
+const scoreTechnical = ref(1);
+const scoreRelevance = ref(1);
+const scoreInnovation = ref(1);
+const scoreWriting = ref(1);
 const commentsAuthor = ref("");
 const commentsCommittee = ref("");
 const submitting = ref(false);
@@ -229,65 +177,43 @@ const scoreFields = [
 
 onMounted(async () => {
   try {
-    const res = await axios.get(`/reviewer/events/${eventId}/papers/${paperId}/review`, {
-      withCredentials: true,
-    });
-    paper.value = res.data.submission || null;
-
-    if (paper.value?.existing_review) {
-      const r = paper.value.existing_review;
-      scoreTechnical.value = r.score_technical ?? 1;
-      scoreRelevance.value = r.score_relevance ?? 1;
-      scoreInnovation.value = r.score_innovation ?? 1;
-      scoreWriting.value = r.score_writing ?? 1;
-      commentsAuthor.value = r.comments_for_author ?? "";
-      commentsCommittee.value = r.comments_committee ?? "";
+    const { data } = await axios.get(`/external/external-review/${token}`);
+    if (!data?.submission) {
+      message.value = "❌ Invalid or expired review link.";
+      messageClass.value = "text-red-600";
+      return;
     }
-  } catch (e) {
-    console.error("Failed to fetch paper details", e);
+    paper.value = data.submission;
+    eventId.value = paper.value.event_id;
+  } catch (err) {
+    console.error("Error loading external review:", err);
+    message.value = "❌ Invalid or expired review link.";
+    messageClass.value = "text-red-600";
   }
 });
 
 async function submitReview() {
   submitting.value = true;
   message.value = "";
-
   try {
-    const scores = [scoreTechnical.value, scoreRelevance.value, scoreInnovation.value, scoreWriting.value];
-    if (!scores.every((n) => Number.isInteger(n) && n >= 1 && n <= 5)) {
-      message.value = "⚠️ All scores must be between 1 and 5.";
-      messageClass.value = "text-yellow-600";
-      submitting.value = false;
-      return;
-    }
-
-    const res = await axios.post(
-      `/reviewer/events/${eventId}/papers/${paperId}/reviews`,
-      {
-        score_technical: scoreTechnical.value,
-        score_relevance: scoreRelevance.value,
-        score_innovation: scoreInnovation.value,
-        score_writing: scoreWriting.value,
-        comments_for_author: commentsAuthor.value,
-        comments_committee: commentsCommittee.value,
-      },
-      { withCredentials: true }
-    );
-
+    const res = await axios.post(`/external/external-review/${token}/submit`, {
+      score_technical: scoreTechnical.value,
+      score_relevance: scoreRelevance.value,
+      score_innovation: scoreInnovation.value,
+      score_writing: scoreWriting.value,
+      comments_for_author: commentsAuthor.value,
+      comments_committee: commentsCommittee.value,
+    });
     if (res.data.ok) {
-      message.value =
-        paper.value?.review_status === "submitted"
-          ? "✅ Review updated successfully!"
-          : "✅ Review submitted successfully!";
+      message.value = "✅ Review submitted successfully!";
       messageClass.value = "text-green-600";
-      if (paper.value) paper.value.review_status = "submitted";
     } else {
-      message.value = "❌ Submission failed.";
+      message.value = "❌ Failed to submit review.";
       messageClass.value = "text-red-600";
     }
-  } catch (err: any) {
-    console.error("Submit error:", err.response?.data || err.message);
-    message.value = `❌ ${err.response?.data?.error || "Network error."}`;
+  } catch (err) {
+    console.error("Submit error:", err);
+    message.value = `❌ ${err.response?.data?.error || "Network error"}`;
     messageClass.value = "text-red-600";
   } finally {
     submitting.value = false;

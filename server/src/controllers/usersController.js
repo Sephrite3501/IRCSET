@@ -16,6 +16,7 @@ export async function getMySubmissions(req, res) {
          s.abstract,
          s.keywords,
          s.status AS submission_status,
+         s.final_pdf_path,         
          r.id AS review_id,
          r.reviewer_user_id,
          u.name AS reviewer_name,
@@ -51,17 +52,23 @@ export async function getMySubmissions(req, res) {
       if (!events[row.event_id].papers[row.submission_id]) {
         events[row.event_id].papers[row.submission_id] = {
           submission_id: row.submission_id,
+          event_id: row.event_id,            
           title: row.title,
           abstract: row.abstract,
           keywords: row.keywords,
           status: row.submission_status,
+          final_pdf_path: row.final_pdf_path,  
           reviews: [],
         };
       }
 
       if (row.review_id) {
         events[row.event_id].papers[row.submission_id].reviews.push({
-          reviewer_name: row.reviewer_name || "Anonymous Reviewer",
+          // ✅ For authors, mask reviewer identity
+          reviewer_name:
+            row.review_submitted && row.comments_for_author
+              ? "Anonymous Reviewer"
+              : null,
           score_technical: row.score_technical,
           score_relevance: row.score_relevance,
           score_innovation: row.score_innovation,

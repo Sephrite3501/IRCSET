@@ -39,6 +39,12 @@ const routes = [
     path: '/review/:eventId/:paperId',
     component: () => import('../views/reviewer/PaperDetails.vue'),
     meta: { requiresAuth: true }
+  },
+  {
+  path: '/external-review/:token',
+  name: 'externalReview',
+  component: () => import('../views/public/externalReview.vue'),
+  meta: { publicStandalone: true }
   }
 ]
 
@@ -48,11 +54,34 @@ export const router = createRouter({
 })
 
 router.beforeEach(async (to, from, next) => {
-  if (!to.meta?.requiresAdmin) return next()
+  // 🚫 Skip all checks for standalone public routes (external review page)
+  if (to.meta.publicStandalone) {
+    return next()
+  }
 
-  try {
-    const { data } = await axios.get('/auth/me') // -> /api/auth/me
-    if (data?.user?.is_admin) return next()
-  } catch {}
-  next('/login')
+  // ✅ Allow public routes (login, register)
+  if (to.meta.public) {
+    return next()
+  }
+
+  // ✅ Admin routes
+  if (to.meta.requiresAdmin) {
+    try {
+      const { data } = await axios.get('/auth/me', { withCredentials: true })
+      if (data?.user?.is_admin) return next()
+    } catch (err) {}
+    return next('/login')
+  }
+
+  // ✅ Normal authenticated routes
+  if (to.meta.requiresAuth) {
+    try {
+      const { data } = await axios.get('/auth/me', { withCredentials: true })
+      if (data?.user) return next()
+    } catch (err) {}
+    return next('/login')
+  }
+
+  // fallback
+  next()
 })

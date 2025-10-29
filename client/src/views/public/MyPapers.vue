@@ -1,5 +1,7 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-10 px-4 flex justify-center">
+  <div
+    class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-10 px-4 flex justify-center"
+  >
     <div class="w-full max-w-6xl bg-white shadow-xl rounded-2xl p-8">
       <h1 class="text-3xl font-bold text-gray-900 mb-8 border-b pb-4">
         My Submitted Papers
@@ -46,25 +48,44 @@
 
               <!-- Status Tag -->
               <div class="flex items-center mb-3">
-                <span class="text-gray-700 text-sm font-medium mr-2">Status:</span>
+                <span class="text-gray-700 text-sm font-medium mr-2"
+                  >Status:</span
+                >
                 <span
                   :class="statusTagClass(paper.status)"
                   class="px-3 py-1 text-xs font-semibold rounded-full capitalize border transition-colors duration-200 ease-in-out"
                 >
-                  {{ paper.status || '—' }}
+                  {{ paper.status || "—" }}
                 </span>
               </div>
 
               <!-- Abstract -->
-              <div v-if="paper.abstract" class="bg-slate-50 border border-slate-200 rounded-lg p-3 mb-4">
-                <h3 class="text-xs font-semibold text-gray-600 uppercase mb-1">Abstract</h3>
-                <p class="text-sm text-gray-800 leading-relaxed whitespace-pre-line">
+              <div
+                v-if="paper.abstract"
+                class="bg-slate-50 border border-slate-200 rounded-lg p-3 mb-4"
+              >
+                <h3
+                  class="text-xs font-semibold text-gray-600 uppercase mb-1"
+                >
+                  Abstract
+                </h3>
+                <p
+                  class="text-sm text-gray-800 leading-relaxed whitespace-pre-line"
+                >
                   {{ paper.abstract }}
                 </p>
               </div>
 
-                <div v-if="paper.keywords" class="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                <h3 class="text-xs font-semibold text-gray-600 uppercase mb-1">Keywords</h3>
+              <!-- Keywords -->
+              <div
+                v-if="paper.keywords"
+                class="bg-slate-50 border border-slate-200 rounded-lg p-3 mb-4"
+              >
+                <h3
+                  class="text-xs font-semibold text-gray-600 uppercase mb-1"
+                >
+                  Keywords
+                </h3>
                 <div class="flex flex-wrap gap-2">
                   <span
                     v-for="(kw, i) in paper.keywords.split(',')"
@@ -76,209 +97,130 @@
                 </div>
               </div>
 
-              <!-- Reviews -->
-              <div v-if="paper.reviews.length">
-                <h4 class="font-semibold text-gray-800 mb-3">
-                  Reviews ({{ paper.reviews.length }})
-                </h4>
-
-                <div
-                  v-for="(review, i) in paper.reviews"
-                  :key="i"
-                  class="mb-4 border border-indigo-100 rounded-lg overflow-hidden"
-                >
-                  <button
-                    @click="toggleReview(paper.submission_id, i)"
-                    class="flex justify-between items-center w-full bg-indigo-50 hover:bg-indigo-100 px-5 py-3 text-left font-medium text-gray-800 transition"
-                  >
-                    <span>
-                      Reviewer: {{ review.reviewer_name }}
-                      <span
-                        v-if="!review.review_submitted"
-                        class="italic text-gray-500"
-                      >
-                        (Pending)
-                      </span>
-                    </span>
-                    <svg
-                      :class="{ 'rotate-180': isExpanded(paper.submission_id, i) }"
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-5 w-5 transition-transform duration-200"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </button>
-
-                  <!-- Expanded Review -->
-                  <div
-                    v-if="isExpanded(paper.submission_id, i)"
-                    class="p-6 bg-white border-t border-indigo-100"
-                  >
-                    <h5 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                      <svg
-                        class="w-4 h-4 mr-1 text-indigo-600"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                      Score Breakdown
-                    </h5>
-
-                    <!-- Score Table -->
-                    <div class="overflow-x-auto mb-5">
-                      <table
-                        class="w-full text-sm border border-gray-200 rounded-lg overflow-hidden"
-                      >
-                        <thead class="bg-gray-100 text-gray-700">
-                          <tr>
-                            <th class="py-2 px-3 border">Technical</th>
-                            <th class="py-2 px-3 border">Relevance</th>
-                            <th class="py-2 px-3 border">Innovation</th>
-                            <th class="py-2 px-3 border">Writing</th>
-                            <th class="py-2 px-3 border">Overall</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr class="text-center text-gray-800">
-                            <td class="border py-2">{{ review.score_technical ?? "—" }}</td>
-                            <td class="border py-2">{{ review.score_relevance ?? "—" }}</td>
-                            <td class="border py-2">{{ review.score_innovation ?? "—" }}</td>
-                            <td class="border py-2">{{ review.score_writing ?? "—" }}</td>
-                            <td class="border py-2 font-semibold text-indigo-600">
-                              {{ review.score_overall ?? "—" }}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <!-- Comments -->
-                    <div class="space-y-4">
-                      <div class="border border-gray-200 bg-gray-50 rounded-lg p-4">
-                        <p class="text-sm font-semibold text-gray-700 mb-1 flex items-center">
-                          <svg
-                            class="w-4 h-4 mr-1 text-indigo-500"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              d="M7 8h10M7 12h4m1 8a9 9 0 100-18 9 9 0 000 18z"
-                            />
-                          </svg>
-                          Comments for Author
-                        </p>
-                        <p class="text-gray-800 leading-relaxed">
-                          {{ review.comments_for_author || "No comments yet." }}
-                        </p>
-                      </div>
-
-                      <div class="border border-gray-200 bg-gray-50 rounded-lg p-4">
-                        <p class="text-sm font-semibold text-gray-700 mb-1 flex items-center">
-                          <svg
-                            class="w-4 h-4 mr-1 text-indigo-500"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              d="M5 12h14M12 5l7 7-7 7"
-                            />
-                          </svg>
-                          Comments for Committee
-                        </p>
-                        <p class="text-gray-800 italic leading-relaxed">
-                          {{ review.comments_committee || "N/A" }}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              <!-- Reviews hidden -->
+              <div
+                v-if="paper.status === 'under_review'"
+                class="text-gray-500 italic mt-2"
+              >
+                Your paper is currently under review. Individual reviews are
+                hidden.
               </div>
 
-              <p v-else class="text-gray-500 italic mt-2">
-                No reviews yet for this paper.
-              </p>
+              <!-- Final upload -->
+              <div
+                v-if="paper.status === 'approved' || paper.status === 'final_required'"
+                class="mt-5 border-t pt-4"
+              >
+                <h4 class="font-semibold text-gray-800 mb-2">
+                  Upload Final Paper
+                </h4>
+
+                <form @submit.prevent="uploadFinalPaper(paper)">
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    @change="(e) => handleFileChange(e, paper.submission_id)"
+                    class="border border-gray-300 rounded-lg px-3 py-2 w-full text-sm focus:ring-2 focus:ring-indigo-500"
+                    required
+                  />
+                  <button
+                    type="submit"
+                    class="mt-3 bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition"
+                    :disabled="uploading"
+                  >
+                    {{ uploading ? "Uploading..." : "Submit Final Copy" }}
+                  </button>
+                </form>
+              </div>
+
+              <!-- Final submitted -->
+              <div
+                v-else-if="paper.status === 'final_submitted'"
+                class="mt-5 border-t pt-4"
+              >
+                <p class="text-green-700 text-sm font-semibold">
+                  ✅ Final version submitted successfully.
+                </p>
+                <a
+                  :href="`${API_BASE}/${paper.final_pdf_path}`"
+                  target="_blank"
+                  class="inline-flex items-center gap-2 bg-indigo-600 text-white px-3 py-1 rounded text-xs hover:bg-indigo-700 transition mt-2"
+                >
+                  View Submitted PDF
+                </a>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <p v-else class="text-gray-500 text-center mt-12 text-lg italic">
+      <p
+        v-else
+        class="text-gray-500 text-center mt-12 text-lg italic"
+      >
         You haven't submitted any papers yet.
       </p>
     </div>
   </div>
 </template>
 
-
 <script setup>
-import { ref, onMounted, computed } from "vue"
-import axios from "axios"
+import { ref, onMounted, computed } from "vue";
+import axios from "axios";
 
-const events = ref([])
-const expanded = ref({})
+const events = ref([]);
 const searchQuery = ref("");
+const selectedFiles = ref({});
+const uploading = ref(false);
 
-const toggleReview = (submissionId, idx) => {
-  const key = `${submissionId}-${idx}`
-  expanded.value[key] = !expanded.value[key]
-}
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
-const isExpanded = (submissionId, idx) => expanded.value[`${submissionId}-${idx}`]
-
+// Fetch papers
 onMounted(async () => {
   try {
-    const res = await axios.get("/users/mypapers", { withCredentials: true })
-    events.value = res.data.events || []
+    const res = await axios.get("/users/mypapers", { withCredentials: true });
+    events.value = res.data.events || [];
   } catch (e) {
-    console.error("Failed to load papers:", e)
+    console.error("Failed to load papers:", e);
   }
-})
+});
 
-
-function statusTagClass(status) {
-  const s = (status || '').toLowerCase().trim();
-
-  if (s === 'accepted' || s === 'approved') {
-    return 'bg-green-100 text-green-700 border-green-300';
-  }
-  if (s === 'rejected') {
-    return 'bg-red-100 text-red-700 border-red-300';
-  }
-  if (s === 'under review' || s === 'under_review' || s === 'reviewing') {
-    return 'bg-yellow-100 text-yellow-700 border-yellow-300';
-  }
-  if (s === 'decision made') {
-    return 'bg-indigo-100 text-indigo-700 border-indigo-300';
-  }
-  if (s === 'Submitted' || s === 'submitted') {
-    return 'bg-purple-100 text-purple-700 border-purple-300';
-  }
-  return 'bg-gray-100 text-gray-700 border-gray-300';
+// Handle file input
+function handleFileChange(e, submissionId) {
+  selectedFiles.value[submissionId] = e.target.files[0];
 }
 
+// Upload final paper
+async function uploadFinalPaper(paper) {
+  const file = selectedFiles.value[paper.submission_id];
+  if (!file) return alert("Please select a PDF file first.");
+
+  const formData = new FormData();
+  formData.append("pdf", file);
+
+  try {
+    uploading.value = true;
+    await axios.post(
+      `/final/${paper.event_id}/${paper.submission_id}/final`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+        withCredentials: true,
+      }
+    );
+
+    alert("Final paper uploaded successfully!");
+    paper.status = "final_submitted";
+  } catch (err) {
+    console.error("Failed to upload final paper:", err);
+    alert("Upload failed. Please try again.");
+  } finally {
+    uploading.value = false;
+  }
+}
+
+// Filter papers by search
 const filteredEvents = computed(() => {
   if (!searchQuery.value.trim()) return events.value;
 
@@ -295,4 +237,20 @@ const filteredEvents = computed(() => {
     }))
     .filter((event) => event.papers.length > 0);
 });
+
+// Tag color by status
+function statusTagClass(status) {
+  const s = (status || "").toLowerCase().trim();
+  if (s === "accepted" || s === "approved" || s === "final_required")
+    return "bg-green-100 text-green-700 border-green-300";
+  if (s === "final_submitted")
+    return "bg-blue-100 text-blue-700 border-blue-300";
+  if (s === "rejected")
+    return "bg-red-100 text-red-700 border-red-300";
+  if (s.includes("review"))
+    return "bg-yellow-100 text-yellow-700 border-yellow-300";
+  if (s === "submitted")
+    return "bg-purple-100 text-purple-700 border-purple-300";
+  return "bg-gray-100 text-gray-700 border-gray-300";
+}
 </script>

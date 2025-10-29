@@ -1,6 +1,7 @@
 // server/src/controllers/chairController.js
 import { appDb } from '../db/pool.js';
 import { logSecurityEvent } from '../utils/logSecurityEvent.js';
+import crypto from "crypto";
 
 /**
  * GET /chair/:eventId/submissions
@@ -395,19 +396,63 @@ export async function searchUsersForEvent(req, res) {
 
 
 export async function getAllReviewsForSubmission(req, res) {
-  const { eventId, submissionId } = req.params;
+  const { eventId, subId } = req.params;
+  console.log("🔍 [DEBUG] Fetching all reviews for submission:", subId, "in event:", eventId);
 
-  const q = await appDb.query(
-    `SELECT r.*, u.name AS reviewer_name, u.email AS reviewer_email
-     FROM reviews r
-     JOIN users u ON u.id = r.reviewer_user_id
-     JOIN submissions s ON s.id = r.submission_id
-     WHERE s.event_id = $1 AND s.id = $2`,
-    [eventId, submissionId]
-  );
+  try {
+    const query = `
+      SELECT 
+        r.id AS review_id,
+        r.submission_id,
+        r.reviewer_user_id,
+        r.external_reviewer_id,
+        COALESCE(u.name, er.name) AS reviewer_name,
+        COALESCE(u.email, er.email) AS reviewer_email,
+        CASE 
+          WHEN r.external_reviewer_id IS NOT NULL THEN TRUE 
+          ELSE FALSE 
+        END AS is_external,
+        r.score_technical,
+        r.score_relevance,
+        r.score_innovation,
+        r.score_writing,
+        r.score_overall,
+        r.comments_for_author,
+        r.comments_committee,
+        r.submitted_at
+      FROM reviews r
+      JOIN assignments a 
+        ON a.submission_id = r.submission_id
+       AND (
+         (r.reviewer_user_id IS NOT NULL AND a.reviewer_user_id = r.reviewer_user_id)
+         OR (r.external_reviewer_id IS NOT NULL AND a.external_reviewer_id = r.external_reviewer_id)
+       )
+      LEFT JOIN users u ON a.reviewer_user_id = u.id
+      LEFT JOIN external_reviewers er ON a.external_reviewer_id = er.id
+      WHERE a.submission_id = $1 AND a.event_id = $2
+      ORDER BY r.submitted_at DESC;
+    `;
 
-  res.json({ items: q.rows });
+    console.log("🧾 [DEBUG] Executing query:\n", query);
+    console.log("🧩 [DEBUG] Query params:", [subId, eventId]);
+
+    const { rows } = await appDb.query(query, [subId, eventId]);
+
+    console.log("📦 [DEBUG] Raw DB rows returned:", rows.length);
+    if (rows.length === 0) console.log("⚠️ [DEBUG] No reviews found for this submission.");
+    else console.log("✅ [DEBUG] Found reviews:", rows);
+
+    res.json({ items: rows });
+  } catch (err) {
+    console.error("❌ [ERROR] Failed to fetch submission reviews:", err);
+    res.status(500).json({ error: "Failed to load reviews" });
+  }
 }
+
+
+
+
+
 
 export async function updateSubmissionStatus(req, res) {
   const { eventId, submissionId } = req.params;
@@ -445,7 +490,6 @@ export async function getApprovedSubmissions(req, res) {
   if (!uid) return res.status(401).json({ error: "Not authenticated" });
 
   try {
-    // Only include events where user is a chair
     const { rows } = await appDb.query(`
       SELECT
         e.id AS event_id,
@@ -455,13 +499,17 @@ export async function getApprovedSubmissions(req, res) {
             'id', s.id,
             'title', s.title,
             'authors', s.authors,
-            'file_path', s.pdf_path
+            'file_path', s.pdf_path,
+            'final_pdf_path', s.final_pdf_path,
+            'status', s.status
           )
         ) AS papers
       FROM submissions s
       JOIN events e ON e.id = s.event_id
       JOIN event_roles er ON er.event_id = e.id
-      WHERE s.status = 'approved' AND er.user_id = $1 AND er.role = 'chair'
+      WHERE s.status IN ('approved', 'final_submitted')
+        AND er.user_id = $1
+        AND er.role = 'chair'
       GROUP BY e.id, e.name
       ORDER BY e.name ASC;
     `, [uid]);
@@ -544,5 +592,45 @@ export async function approveAllForEvent(req, res) {
     res.status(500).json({ error: 'Server error' })
   }
 }
+
+//External Reviewer related
+export async function createExternalReviewer(req, res) {
+  const { eventId } = req.params;
+  const { name, email, submissionId } = req.body;
+
+  if (!name || !submissionId)
+    return res.status(400).json({ error: "Missing name or submission ID" });
+
+  try {
+    const token = crypto.randomBytes(32).toString("hex");
+
+    // Insert external reviewer
+    const { rows: [reviewer] } = await appDb.query(
+      `INSERT INTO external_reviewers (event_id, name, email, invite_token, expires_at)
+       VALUES ($1, $2, $3, $4, NOW() + interval '7 days')
+       RETURNING *`,
+      [eventId, name, email, token]
+    );
+
+    // Link to specific paper
+    await appDb.query(
+      `INSERT INTO assignments (event_id, submission_id, external_reviewer_id, assigned_at)
+       VALUES ($1, $2, $3, NOW())`,
+      [eventId, submissionId, reviewer.id]
+    );
+
+    res.json({
+      ok: true,
+      reviewer: {
+        name,
+        link: `${process.env.FRONTEND_BASE_URL || "http://localhost:8080"}/external-review/${token}`,
+      },
+    });
+  } catch (err) {
+    console.error("Error creating external reviewer:", err);
+    res.status(500).json({ error: "Database error while creating external reviewer" });
+  }
+}
+
 
 
