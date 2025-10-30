@@ -104,7 +104,7 @@ export async function logSecurityEvent({
   try {
     await appDb.query(
       `INSERT INTO audit_logs
-         (trace_id, actor_user_id, action, entity_type, entity_id, severity, details_json, ip, user_agent)
+         (trace_id, actor_user_id, action, entity_type, entity_id, severity, details, ip, user_agent)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
       [
         traceId || null,

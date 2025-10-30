@@ -27,19 +27,41 @@ async function submit() {
   errorMsg.value = "";
 
   const v = validate();
-  if (v) {
-    errorMsg.value = v;
-    return;
-  }
+  if (v) { errorMsg.value = v; return; }
 
   loading.value = true;
   try {
-    await axios.get("/auth/csrf-token");
-    await axios.post("/auth/register", {
-      name: name.value.trim(),
-      email: email.value.trim().toLowerCase(),
-      password: password.value,
+    const api = axios.create({
+      baseURL: import.meta.env.VITE_API_BASE || "http://localhost:3005",
+      withCredentials: true,
     });
+
+    await api.get("/auth/csrf-token");
+
+    // ✅ get v3 token
+    const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+    const captchaToken = await new Promise((resolve, reject) => {
+      if (!window.grecaptcha) return reject(new Error("reCAPTCHA not loaded"));
+      window.grecaptcha.ready(() => {
+        window.grecaptcha.execute(siteKey, { action: 'register' })
+          .then(resolve).catch(reject);
+      });
+    });
+
+     await api.post(
+      "/auth/register",
+      {
+        name: name.value.trim(),
+        email: email.value.trim().toLowerCase(),
+        password: password.value,
+        captchaToken, // body fallback
+      },
+      {
+        headers: { "X-Captcha-Token": captchaToken }, // header fallback
+        withCredentials: true,
+      }
+ );
+
     router.push("/login");
   } catch (e) {
     const data = e?.response?.data;
@@ -52,6 +74,7 @@ async function submit() {
     loading.value = false;
   }
 }
+
 </script>
 
 <template>
@@ -129,7 +152,6 @@ async function submit() {
             class="w-full rounded-md border border-gray-300 text-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition"
           />
         </div>
-
         <!-- Error message -->
         <p
           v-if="errorMsg"

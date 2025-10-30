@@ -1,23 +1,85 @@
 <script setup>
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import axios from "axios";
 
 const router = useRouter();
+
 const email = ref("");
 const password = ref("");
 const loading = ref(false);
 const errorMsg = ref("");
 
-async function submit() {
-  loading.value = true;
-  errorMsg.value = "";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3005";
+const SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) return resolve();
+    const s = document.createElement("script");
+    s.src = src;
+    s.async = true;
+    s.defer = true;
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+onMounted(async () => {
   try {
-    await axios.get("/auth/csrf-token");
-    await axios.post("/auth/login", { email: email.value, password: password.value });
-    router.push("/dashboard");
-  } catch (e) {
-    errorMsg.value = e?.response?.data?.message || "Login failed";
+    await loadScript(`https://www.google.com/recaptcha/api.js?render=${SITE_KEY}`);
+  } catch {
+    // If it fails, submit() will show a clearer message
+  }
+});
+
+const executeRecaptcha = () =>
+  new Promise((resolve, reject) => {
+    if (!window.grecaptcha || typeof window.grecaptcha.ready !== "function") {
+      return reject(new Error("reCAPTCHA not loaded"));
+    }
+    window.grecaptcha.ready(() => {
+      window.grecaptcha.execute(SITE_KEY, { action: "login" })
+        .then(resolve)
+        .catch(reject);
+    });
+  });
+
+async function submit() {
+  if (loading.value) return;
+  errorMsg.value = "";
+  loading.value = true;
+
+  try {
+    const api = axios.create({ baseURL: API_BASE, withCredentials: true });
+
+    // Get CSRF cookie (your server expects it)
+    await api.get("/auth/csrf-token");
+
+    // Get v3 token
+    const captchaToken = await executeRecaptcha();
+
+    const e = email.value.trim().toLowerCase();
+
+    // Request OTP
+    await api.post(
+      "/auth/login",
+      { email: e, password: password.value, captchaToken },         // body
+      { headers: { "X-Captcha-Token": captchaToken } }              // header
+    );
+
+    // Carry email to OTP page
+    sessionStorage.setItem("otp_email", e);
+    router.push({ name: "verify-otp", query: { email: e } });
+  } catch (err) {
+    const data = err?.response?.data;
+    errorMsg.value =
+      data?.message ||
+      data?.error ||
+      (data?.errors && Object.values(data.errors).flat().join(" ")) ||
+      err?.message ||
+      "Login failed";
   } finally {
     loading.value = false;
   }
@@ -28,13 +90,9 @@ async function submit() {
   <div
     class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4"
   >
-    <div
-      class="w-full max-w-sm bg-white border border-slate-200 shadow-xl rounded-xl p-8"
-    >
+    <div class="w-full max-w-sm bg-white border border-slate-200 shadow-xl rounded-xl p-8">
       <!-- Header -->
-      <h1
-        class="text-3xl font-bold text-center text-indigo-700 mb-2 tracking-tight"
-      >
+      <h1 class="text-3xl font-bold text-center text-indigo-700 mb-2 tracking-tight">
         IRCSET Portal
       </h1>
       <p class="text-gray-500 text-center mb-8 text-sm">
@@ -45,10 +103,7 @@ async function submit() {
       <form @submit.prevent="submit" class="space-y-5">
         <!-- Email -->
         <div>
-          <label
-            for="email"
-            class="block text-sm font-medium text-gray-700 mb-1"
-          >
+          <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
             Email
           </label>
           <input
@@ -63,10 +118,7 @@ async function submit() {
 
         <!-- Password -->
         <div>
-          <label
-            for="password"
-            class="block text-sm font-medium text-gray-700 mb-1"
-          >
+          <label for="password" class="block text-sm font-medium text-gray-700 mb-1">
             Password
           </label>
           <input
@@ -79,7 +131,7 @@ async function submit() {
           />
         </div>
 
-        <!-- Error Message -->
+        <!-- Error -->
         <p v-if="errorMsg" class="text-red-500 text-sm text-center mt-1">
           {{ errorMsg }}
         </p>
@@ -97,14 +149,10 @@ async function submit() {
       <!-- Footer -->
       <p class="text-sm text-gray-500 text-center mt-6">
         No account?
-        <RouterLink
-          to="/register"
-          class="text-indigo-600 hover:text-indigo-800 font-medium"
-        >
+        <RouterLink to="/register" class="text-indigo-600 hover:text-indigo-800 font-medium">
           Register
         </RouterLink>
       </p>
     </div>
   </div>
 </template>
-

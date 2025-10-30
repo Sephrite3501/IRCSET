@@ -6,6 +6,7 @@ services:
       POSTGRES_DB: ircset_db
       POSTGRES_USER: ircsetuser
       POSTGRES_PASSWORD: ircsetpass
+      
     ports:
       - "5341:5432"
     volumes:

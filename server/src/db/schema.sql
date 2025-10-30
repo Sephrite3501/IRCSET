@@ -3,10 +3,21 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 BEGIN;
 
-DROP TABLE IF EXISTS session_tokens, audit_logs, membership_validations, decisions,
-  reviews, assignments, submissions, event_roles, events, users CASCADE;
+-- Drop in dependency-friendly order (CASCADE ensures all refs go)
+DROP TABLE IF EXISTS
+  session_tokens,
+  audit_logs,
+  membership_validations,
+  decisions,
+  reviews,
+  assignments,
+  submissions,
+  event_roles,
+  events,
+  users
+CASCADE;
 
--- Users
+-- ===================== USERS =====================
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
@@ -14,11 +25,34 @@ CREATE TABLE users (
   name TEXT,
   is_admin BOOLEAN NOT NULL DEFAULT false,
   is_active BOOLEAN NOT NULL DEFAULT true,
-  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  account_status TEXT NOT NULL DEFAULT 'active',
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 CREATE UNIQUE INDEX users_email_lower_unique ON users (LOWER(email));
 
--- Events
+-- ===================== AUTH SUPPORT TABLES =====================
+-- Attempts table used by login throttling
+CREATE TABLE IF NOT EXISTS login_attempts (
+  id BIGSERIAL PRIMARY KEY,
+  email TEXT NOT NULL,
+  success BOOLEAN NOT NULL,
+  ip_address TEXT,
+  user_agent TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_email_created
+  ON login_attempts(email, created_at DESC);
+
+-- OTP store used by 2-step login (email-based)
+CREATE TABLE IF NOT EXISTS login_otp (
+  email TEXT PRIMARY KEY,
+  code TEXT NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- ===================== EVENTS =====================
 CREATE TABLE events (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
@@ -38,7 +72,7 @@ CREATE TABLE event_roles (
   UNIQUE(event_id, user_id, role)
 );
 
--- Submissions
+-- ===================== SUBMISSIONS =====================
 CREATE TABLE submissions (
   id SERIAL PRIMARY KEY,
   event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
@@ -131,7 +165,7 @@ CREATE TABLE membership_validations (
   checked_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- Audit logs
+-- ===================== AUDIT LOGS =====================
 CREATE TABLE audit_logs (
   id BIGSERIAL PRIMARY KEY,
   trace_id TEXT,
@@ -140,13 +174,13 @@ CREATE TABLE audit_logs (
   entity_type TEXT,
   entity_id TEXT,
   severity TEXT NOT NULL DEFAULT 'info' CHECK (severity IN ('info','warn','error')),
-  details_json JSONB NOT NULL DEFAULT '{}',
+  details JSONB NOT NULL DEFAULT '{}',         -- matches code (details)
   ip TEXT,
   user_agent TEXT,
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- Session tokens
+-- ===================== SESSIONS =====================
 CREATE TABLE session_tokens (
   id SERIAL PRIMARY KEY,
   token TEXT NOT NULL UNIQUE,
@@ -157,7 +191,27 @@ CREATE TABLE session_tokens (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Indexes
+-- ===================== (OPTIONAL) OTHER 2FA TABLES =====================
+-- Keep these if other features use them; they don't conflict with login_otp/attempts
+CREATE TABLE IF NOT EXISTS otp_codes (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  code VARCHAR(10) NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS otp_attempts (
+  id SERIAL PRIMARY KEY,
+  email TEXT NOT NULL,
+  ip_address TEXT NOT NULL,
+  attempt_time TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_otp_attempt_window
+  ON otp_attempts (email, ip_address, attempt_time);
+
+-- ===================== INDEXES =====================
 CREATE INDEX idx_submissions_author        ON submissions (author_user_id);
 CREATE INDEX idx_submissions_event         ON submissions (event_id);
 CREATE INDEX idx_submissions_status        ON submissions (status);
@@ -170,19 +224,22 @@ CREATE INDEX idx_audit_entity              ON audit_logs (entity_type, entity_id
 CREATE INDEX idx_session_tokens_user_exp   ON session_tokens (user_id, expires_at);
 CREATE INDEX idx_reviews_submitted_only    ON reviews (submission_id) WHERE status='submitted';
 
--- Trigger: auto-touch submissions.updated_at
+-- ===================== TRIGGERS =====================
+-- Auto-touch submissions.updated_at
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   NEW.updated_at := NOW();
   RETURN NEW;
 END $$;
+
 DROP TRIGGER IF EXISTS trg_submissions_updated_at ON submissions;
 CREATE TRIGGER trg_submissions_updated_at
 BEFORE UPDATE ON submissions
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- Seed admin (password = StrongP@ssw0rd!)
+-- ===================== SEED =====================
+-- Seed admin (password = StrongP@ssw0rd!) - requires pgcrypto for crypt/gen_salt
 INSERT INTO users (email, password_hash, name, is_admin)
 VALUES ('admin1@example.com', crypt('StrongP@ssw0rd!', gen_salt('bf', 10)), 'Admin One', true);
 

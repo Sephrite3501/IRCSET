@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Event Registration Confirmation</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f9fafb;
+      padding: 20px;
+      color: #374151;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background-color: white;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      padding: 30px;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 10px;
+    }
+    ul {
+      list-style-type: none;
+      padding-left: 0;
+      margin-top: 20px;
+    }
+    li {
+      margin-bottom: 10px;
+    }
+    strong {
+      color: #111827;
+    }
+    .footer {
+      margin-top: 30px;
+      font-size: 14px;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Hi {{name}},</h1>
+
+    <p>Thank you for registering for the event! Here are your event details:</p>
+
+    <ul>
+      <li><strong>📌 Event Name:</strong> {{eventName}}</li>
+      <li><strong>📅 Date:</strong> {{eventDate}} At {{eventTime}}</li>
+      <li><strong>📍 Location:</strong> {{eventLocation}}</li>
+      <li><strong>🎯 Event Type:</strong> {{eventType}}</li>
+      <li><strong>👥 Number of Pax:</strong> {{pax}}</li>
+    </ul>
+
+    <p class="footer">We look forward to seeing you at the event.<br>– IRC Team</p>
+  </div>
+</body>
+</html>

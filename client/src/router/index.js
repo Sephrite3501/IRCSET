@@ -10,6 +10,7 @@ import Dashboard from '../views/public/Dashboard.vue'
 import Submission from '../views/public/Submission.vue'
 import AdminUsers from '../views/admin/AdminUsers.vue'
 import ChairApprovedPapers from '../views/chair/ChairViewAllApproved.vue'
+import VerifyOtp from '../views/public/VerifyOtp.vue'
 const AdminEvents = () => import('../views/admin/AdminEvents.vue')
 const ChairManageReviewers = () => import('../views/chair/ChairManageReviewers.vue')
 const ChairAssignPapers = () => import('../views/chair/ChairAssignPapers.vue')
@@ -21,6 +22,7 @@ const routes = [
   { path: '/register', component: Register },
   { path: '/dashboard', component: Dashboard }, // or delete if not needed
   { path: '/submission', component: Submission },
+  { path: '/verify-otp',name : 'verify-otp',  component: VerifyOtp},
   { path: '/admin', redirect: '/admin/events' },                     
   { path: '/admin/events', component: AdminEvents, meta: { requiresAdmin: true } }, 
   { path: '/admin/users', component: AdminUsers, meta: { requiresAdmin: true } }, 

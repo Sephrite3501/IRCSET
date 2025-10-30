@@ -25,6 +25,19 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 dotenv.config();
 
+function envList(name, fallback = []) {
+  const v = process.env[name];
+  if (!v || typeof v !== 'string') return fallback;
+  return v.split(',').map(s => s.trim()).filter(Boolean);
+}
+function envStr(name, fallback = '') {
+  return (process.env[name] ?? fallback);
+}
+function envNum(name, fallback) {
+  const n = Number(process.env[name]);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 const app = express();
 app.set('trust proxy', 1);
 
@@ -52,19 +65,30 @@ if (process.env.NODE_ENV === 'production') {
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
-const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS) //|| 'http://localhost:8080'
-  .split(',')
-  .map(s => s.trim());
+const ALLOWED_ORIGINS = envList('CORS_ORIGINS', [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173'
+]);
+
+const normalize = (s) => (s || '').replace(/\/+$/, '');
+const ALLOWED_NORMALIZED = ALLOWED_ORIGINS.map(normalize);
 
 const corsOptions = {
   origin(origin, cb) {
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    if (!origin || ALLOWED_NORMALIZED.includes(normalize(origin))) return cb(null, true);
     const err = new Error('Not allowed by CORS'); err.status = 403; return cb(err);
   },
   credentials: true,
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type','Authorization','X-CSRF-Token']
+  // 👇 add your custom header(s)
+  allowedHeaders: ['Content-Type','Authorization','X-CSRF-Token','X-Captcha-Token','X-Requested-With'],
+  exposedHeaders: ['Set-Cookie']
 };
+
+
+
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 

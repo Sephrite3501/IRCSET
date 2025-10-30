@@ -25,3 +25,14 @@ export const writeLimiter = rateLimit({
   legacyHeaders: false,
   message: 'Too many requests, please try again later.'
 });
+
+// 🔐 Aggressive limiter for login attempts
+export const loginLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  max: 5, // limit each IP to 5 login attempts
+  message: {
+    message: 'Too many login attempts. Please wait before retrying.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
