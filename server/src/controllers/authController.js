@@ -21,7 +21,7 @@ const LOCK_WINDOW_MS = Number(process.env.LOGIN_LOCK_WINDOW_MS || 10 * 60 * 1000
 const LOCK_FAILS     = Number(process.env.LOGIN_LOCK_FAILS     || 5);
 
 const secure = process.env.NODE_ENV === 'production';
-const cookieBase = { httpOnly: true, sameSite: 'lax', secure, path: '/' };
+const cookieBase = { httpOnly: true, sameSite: 'lax', secure:false, path: '/' };
 const sessionTtlSec = Number(process.env.SESSION_TTL_SECONDS || 3600);
 
 function sessionFromCookie(req) {

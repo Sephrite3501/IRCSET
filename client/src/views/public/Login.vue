@@ -10,7 +10,7 @@ const password = ref("");
 const loading = ref(false);
 const errorMsg = ref("");
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3005";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3005";
 const SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
 function loadScript(src) {

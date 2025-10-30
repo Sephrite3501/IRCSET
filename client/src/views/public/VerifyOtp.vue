@@ -62,7 +62,7 @@ const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3005'
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3005'
 
 const email = ref('')
 const otp = ref('')

@@ -69,7 +69,9 @@ const ALLOWED_ORIGINS = envList('CORS_ORIGINS', [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
   'http://localhost:5173',
-  'http://127.0.0.1:5173'
+  'http://127.0.0.1:5173',
+  'http://localhost:8080',
+   'http://client:8080', 
 ]);
 
 const normalize = (s) => (s || '').replace(/\/+$/, '');
@@ -116,7 +118,7 @@ app.use(issueCsrf);
 app.use(originGuard());
 
 app.use(
-  ['/auth/logout','/auth/refresh','/submissions','/reviewer','/chair','/admin','/final','/submissions/:id/final'],
+  ['/auth/logout','/auth/refresh','/submissions','/reviewer','/chair','/admin','/final','/submissions/:id/final','/users'],
   requireCsrf
 );
 

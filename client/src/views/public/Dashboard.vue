@@ -10,16 +10,32 @@ const submissions = ref([]);
 const tasks = ref([]);
 const nextDeadline = ref(null);
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3005";
+
 onMounted(async () => {
   try {
-    const { data } = await axios.get("/auth/me");
+    // 1) use an axios instance with base + credentials
+    const api = axios.create({
+      baseURL: API_BASE,
+      withCredentials: true,
+    });
+
+    // 2) first, make sure we have the csrf cookie (your app.js issuesCsrf)
+    await api.get("/auth/csrf-token");
+
+    // 3) now get the current user
+    const { data } = await api.get("/auth/me");
     user.value = data?.user || null;
-    if (!user.value) router.push("/login");
 
-    // Load submissions for authors
-    const res1 = await axios.get("/users/mypapers");
-    submissions.value = res1.data.events?.flatMap(ev => ev.papers || []) || [];
+    if (!user.value) {
+      router.push("/login");
+      return;
+    }
 
+    // 4) fetch user papers
+    const res1 = await api.get("/users/mypapers");
+    submissions.value =
+      res1.data?.events?.flatMap((ev) => ev.papers || []) || [];
   } catch (err) {
     console.error("Dashboard load failed:", err);
     router.push("/login");
@@ -30,7 +46,11 @@ onMounted(async () => {
 
 async function logout() {
   try {
-    await axios.post("/auth/logout");
+    const api = axios.create({
+      baseURL: API_BASE,
+      withCredentials: true,
+    });
+    await api.post("/auth/logout");
   } finally {
     router.push("/login");
   }

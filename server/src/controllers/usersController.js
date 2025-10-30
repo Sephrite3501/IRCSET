@@ -3,7 +3,7 @@ import { appDb } from "../db/pool.js";
 
 
 export async function getMySubmissions(req, res) {
-  const uid = req.user?.uid;
+  const uid = req.user.id || req.user.uid;
   if (!uid) return res.status(401).json({ error: "Unauthorized" });
 
   try {
@@ -28,7 +28,7 @@ export async function getMySubmissions(req, res) {
          r.comments_for_author,
          r.comments_committee,
          r.status AS review_status,
-         r.review_submitted
+         (r.status = 'submitted') AS review_submitted
        FROM submissions s
        JOIN events e ON e.id = s.event_id
        LEFT JOIN reviews r ON r.submission_id = s.id
