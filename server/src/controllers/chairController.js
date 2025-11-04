@@ -522,76 +522,7 @@ export async function getApprovedSubmissions(req, res) {
 }
 
 
-export async function approveAllForEvent(req, res) {
-  const traceId = `CHAIR-APPALL-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
-  const eventId = Number(req.params.eventId || 0)
-  const force = req.query.force === '1' || req.query.force === 'true'
 
-  if (!eventId) return res.status(400).json({ error: 'Event ID required' })
-
-  try {
-    await appDb.query('BEGIN')
-
-    const sql = `
-      WITH asn AS (
-        SELECT submission_id, COUNT(*)::int AS n_assigned
-        FROM assignments
-        GROUP BY submission_id
-      ),
-      rev AS (
-        SELECT submission_id,
-               COUNT(*) FILTER (WHERE status='submitted')::int AS n_submitted
-        FROM reviews
-        GROUP BY submission_id
-      ),
-      eligible AS (
-        SELECT s.id
-        FROM submissions s
-        LEFT JOIN asn ON asn.submission_id = s.id
-        LEFT JOIN rev ON rev.submission_id = s.id
-        WHERE s.event_id = $1
-          AND s.status <> 'approved'
-          AND (
-            $2::boolean = TRUE
-            OR COALESCE(rev.n_submitted, 0) >= COALESCE(asn.n_assigned, 0)
-          )
-      )
-      UPDATE submissions s
-      SET status='approved', updated_at=NOW()
-      FROM eligible e
-      WHERE s.id = e.id
-      RETURNING s.id, s.title
-    `
-    const { rows } = await appDb.query(sql, [eventId, !!force])
-
-    await appDb.query('COMMIT')
-
-    // audit
-    await logSecurityEvent({
-      traceId,
-      actorUserId: req.user.uid,
-      action: 'chair.bulk_approve',
-      severity: 'info',
-      entity_type: 'event',
-      entity_id: String(eventId),
-      details: {
-        approved_count: rows.length,
-        approved_ids: rows.map(r => r.id),
-        forced: !!force
-      }
-    })
-
-    res.json({
-      ok: true,
-      approved_count: rows.length,
-      approved_ids: rows.map(r => r.id)
-    })
-  } catch (e) {
-    await appDb.query('ROLLBACK')
-    console.error('approveAllForEvent error:', e)
-    res.status(500).json({ error: 'Server error' })
-  }
-}
 
 //External Reviewer related
 export async function createExternalReviewer(req, res) {

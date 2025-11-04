@@ -19,7 +19,6 @@ import {
   getAllReviewsForSubmission,
   updateSubmissionStatus,
   getApprovedSubmissions,
-  approveAllForEvent,
 } from '../controllers/chairController.js';
 
 import {
@@ -128,13 +127,7 @@ r.put(
   updateSubmissionStatus
 );
 
-r.post(
-  '/:eventId/submissions/approve-all',
-  requireAuth,
-  requireEventRole('chair'),
-  writeLimiter,
-  approveAllForEvent
-);
+
 
 r.get("/approved-submissions", requireAuth, getApprovedSubmissions);
 r.get('/:eventId/submissions/:subId/external-reviews', getExternalReviewsForSubmission);

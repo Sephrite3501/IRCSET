@@ -18,9 +18,17 @@
 
       <!-- Search -->
       <div class="mb-6 flex items-center gap-3">
-        <input v-model="searchQGlobal" type="text" placeholder="Search submissions by title..."
-          class="flex-1 border rounded-md px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-400" />
-        <button v-if="searchQGlobal" @click="searchQGlobal = ''" class="text-sm text-gray-500 hover:text-gray-700">
+        <input
+          v-model="searchQGlobal"
+          type="text"
+          placeholder="Search submissions by title..."
+          class="flex-1 border rounded-md px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-400"
+        />
+        <button
+          v-if="searchQGlobal"
+          @click="searchQGlobal = ''"
+          class="text-sm text-gray-500 hover:text-gray-700"
+        >
           ✕ Clear
         </button>
       </div>
@@ -66,6 +74,7 @@
               </div>
             </button>
 
+            <!-- Event quick stats + sort -->
             <div class="px-6 pb-3 flex items-center gap-3">
               <div class="text-sm text-gray-600">
                 Overall Avg Score:
@@ -73,11 +82,11 @@
               </div>
 
               <button
-                class="ml-auto text-xs px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-                :disabled="loading || !(submissionsByEvent[ev.id]?.length)"
-                @click="massApproveAPI(ev.id)"
+                class="ml-auto text-xs px-3 py-1 rounded bg-slate-200 hover:bg-slate-300"
+                @click="toggleEventSort(ev.id)"
+                :title="subSortAscByEvent[ev.id] ? 'Ascending' : 'Descending'"
               >
-                Approve All
+                Sort papers by Avg Score {{ subSortAscByEvent[ev.id] ? '↑' : '↓' }}
               </button>
             </div>
 
@@ -128,8 +137,15 @@
 
                     <!-- Current Reviewers -->
                     <div class="mt-4">
-                      <h4 class="text-sm font-semibold text-gray-700 mb-1 border-b border-gray-200 pb-1">
-                        Current Reviewers
+                      <h4 class="text-sm font-semibold text-gray-700 mb-1 border-b border-gray-200 pb-1 flex items-center">
+                        <span>Current Reviewers</span>
+                        <button
+                          class="ml-auto text-xs px-2 py-0.5 rounded bg-slate-200 hover:bg-slate-300"
+                          @click="toggleReviewerSort(ev.id, sub.id)"
+                          :title="revSortAscBySub[sub.id] ? 'Ascending' : 'Descending'"
+                        >
+                          Sort by Score {{ revSortAscBySub[sub.id] ? '↑' : '↓' }}
+                        </button>
                       </h4>
 
                       <div class="bg-slate-50 border border-gray-200 rounded-lg overflow-hidden">
@@ -138,8 +154,11 @@
                         </div>
 
                         <div v-else class="divide-y">
-                          <div v-for="a in assignmentsBySub[sub.id]" :key="a.reviewer_id"
-                            class="px-4 py-3 bg-white hover:bg-slate-50 transition-colors">
+                          <div
+                            v-for="a in sortedAssignments(sub.id)"
+                            :key="a.reviewer_id"
+                            class="px-4 py-3 bg-white hover:bg-slate-50 transition-colors"
+                          >
                             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                               <div>
                                 <p class="text-sm font-medium text-gray-800">{{ a.name || a.email }}</p>
@@ -151,11 +170,7 @@
 
                               <div class="flex gap-3 text-xs">
                                 <button class="text-indigo-600 hover:underline" @click="toggleReviewDropdown(sub.id, a.reviewer_id)">
-                                  {{
-                                    expandedReviews[sub.id]?.has(a.reviewer_id)
-                                      ? "Hide"
-                                      : "Show"
-                                  }} Review
+                                  {{ expandedReviews[sub.id]?.has(a.reviewer_id) ? "Hide" : "Show" }} Review
                                 </button>
                                 <button class="text-red-500 hover:underline" :disabled="loading" @click="unassignOne(ev.id, sub.id, a.reviewer_id)">
                                   Remove
@@ -217,71 +232,72 @@
                       </div>
                     </div>
 
-                      <!-- External Reviews (Collapsible) -->
-                      <div v-if="Object.values(reviewsBySub[sub.id] || {}).some(r => r.is_external)" class="mt-6">
-                        <h4 class="text-sm font-semibold text-gray-700 mb-1 border-b border-gray-200 pb-1 flex items-center justify-between">
-                          <span>External Reviewers</span>
-                          <button
-                            class="text-xs text-indigo-600 hover:underline"
-                            @click="toggleExternalReviews(sub.id)"
+                    <!-- External Reviews (Collapsible) -->
+                    <div v-if="Object.values(reviewsBySub[sub.id] || {}).some(r => r.is_external)" class="mt-6">
+                      <h4 class="text-sm font-semibold text-gray-700 mb-1 border-b border-gray-200 pb-1 flex items-center justify-between">
+                        <span>External Reviewers</span>
+                        <button
+                          class="text-xs text-indigo-600 hover:underline"
+                          @click="toggleExternalReviews(sub.id)"
+                        >
+                          {{
+                            expandedExternalReviews[sub.id]
+                              ? 'Hide Reviews'
+                              : `Show Reviews (${Object.values(reviewsBySub[sub.id] || {}).filter(r => r.is_external).length})`
+                          }}
+                        </button>
+                      </h4>
+
+                      <transition name="fade">
+                        <div v-if="expandedExternalReviews[sub.id]" class="divide-y divide-gray-200 mt-2">
+                          <div
+                            v-for="r in Object.values(reviewsBySub[sub.id] || {}).filter(rr => rr.is_external)"
+                            :key="r.external_reviewer_id"
+                            class="py-4"
                           >
-                            {{
-                              expandedExternalReviews[sub.id]
-                                ? 'Hide Reviews'
-                                : `Show Reviews (${Object.values(reviewsBySub[sub.id] || {}).filter(r => r.is_external).length})`
-                            }}
-                          </button>
-                        </h4>
+                            <p class="font-medium text-gray-900">
+                              {{ r.reviewer_name }}
+                              <span class="text-xs text-gray-500">(External)</span>
+                            </p>
+                            <p class="text-xs text-gray-500 mb-2">
+                              Submitted at: {{ fmt(r.submitted_at) || '—' }}
+                            </p>
 
-                        <transition name="fade">
-                          <div v-if="expandedExternalReviews[sub.id]" class="divide-y divide-gray-200 mt-2">
-                            <div
-                              v-for="r in Object.values(reviewsBySub[sub.id] || {}).filter(rr => rr.is_external)"
-                              :key="r.external_reviewer_id"
-                              class="py-4"
-                            >
-                              <p class="font-medium text-gray-900">
-                                {{ r.reviewer_name }}
-                                <span class="text-xs text-gray-500">(External)</span>
-                              </p>
-                              <p class="text-xs text-gray-500 mb-2">
-                                Submitted at: {{ fmt(r.submitted_at) || '—' }}
-                              </p>
-
-                              <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                                <div
-                                  v-for="metric in ['technical', 'relevance', 'innovation', 'writing']"
-                                  :key="metric"
-                                  class="text-center border rounded-lg p-2 bg-slate-50"
-                                >
-                                  <p class="text-xs text-gray-500 uppercase">{{ metric }}</p>
-                                  <p class="font-semibold">{{ r['score_' + metric] ?? '—' }}</p>
-                                </div>
-                              </div>
-
-                              <div class="text-sm text-gray-700 mb-2">
-                                <strong>Overall:</strong> {{ r.score_overall ?? '—' }}
-                              </div>
-
-                              <div class="text-sm text-gray-800 whitespace-pre-line bg-gray-50 border rounded-lg p-3 mb-3">
-                                <strong>Comments for Author:</strong><br />
-                                {{ r.comments_for_author || '—' }}
-                              </div>
-
-                              <div class="text-sm text-gray-800 whitespace-pre-line bg-gray-50 border rounded-lg p-3">
-                                <strong>Comments for Committee:</strong><br />
-                                {{ r.comments_committee || '—' }}
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                              <div
+                                v-for="metric in ['technical', 'relevance', 'innovation', 'writing']"
+                                :key="metric"
+                                class="text-center border rounded-lg p-2 bg-slate-50"
+                              >
+                                <p class="text-xs text-gray-500 uppercase">{{ metric }}</p>
+                                <p class="font-semibold">{{ r['score_' + metric] ?? '—' }}</p>
                               </div>
                             </div>
+
+                            <div class="text-sm text-gray-700 mb-2">
+                              <strong>Overall:</strong> {{ r.score_overall ?? '—' }}
+                            </div>
+
+                            <div class="text-sm text-gray-800 whitespace-pre-line bg-gray-50 border rounded-lg p-3 mb-3">
+                              <strong>Comments for Author:</strong><br />
+                              {{ r.comments_for_author || '—' }}
+                            </div>
+
+                            <div class="text-sm text-gray-800 whitespace-pre-line bg-gray-50 border rounded-lg p-3">
+                              <strong>Comments for Committee:</strong><br />
+                              {{ r.comments_committee || '—' }}
+                            </div>
                           </div>
-                        </transition>
-                      </div>
+                        </div>
+                      </transition>
+                    </div>
                     <div v-else class="mt-6">
                       <h4 class="text-sm font-semibold text-gray-700 mb-1 border-b border-gray-200 pb-1">
                         External Reviewers
                       </h4>
                       <p class="text-gray-500 italic text-sm">No external reviews submitted yet.</p>
                     </div>
+
                     <!-- Assign Reviewers -->
                     <div class="mt-6">
                       <h4 class="text-sm font-semibold text-gray-700 mb-1">Add Reviewers</h4>
@@ -398,6 +414,10 @@ const expandedReviews = ref({});
 const reviewsBySub = ref({});
 const searchQGlobal = ref("");
 
+// NEW: sort state
+const subSortAscByEvent = ref({}); // { [eventId]: boolean }
+const revSortAscBySub   = ref({}); // { [subId]: boolean }
+
 // External reviewer modal
 const showExternalModal = ref(false);
 const extName = ref("");
@@ -500,14 +520,11 @@ async function loadAllReviews(eventId, subId) {
   } catch (e) {
     console.error("Failed to load reviews:", e);
   }
-
-  console.log(reviewsBySub.value);
 }
 
 async function loadExternalReviews(eventId, subId) {
   try {
     const { data } = await axios.get(`/chair/${eventId}/submissions/${subId}/external-reviews`);
-    console.log("📦 [DEBUG] External reviews:", data.items);
     for (const r of data.items) {
       const key = r.external_reviewer_id;
       if (!reviewsBySub.value[subId]) reviewsBySub.value[subId] = {};
@@ -520,38 +537,69 @@ async function loadExternalReviews(eventId, subId) {
 
 // --- Utilities & UI helpers ---
 function fmt(dt) {
-  try {
-    return new Date(dt).toLocaleDateString();
-  } catch {
-    return dt;
-  }
+  try { return new Date(dt).toLocaleDateString(); } catch { return dt; }
 }
 function formatScore(n) {
   if (n == null) return "—";
   const x = Number(n);
   return Number.isFinite(x) ? x.toFixed(2) : "—";
 }
+
+// NEW: ensure reviews loaded before reviewer sort toggle
+async function ensureAllReviews(eventId, subId) {
+  if (!reviewsBySub.value[subId]) {
+    await loadAllReviews(eventId, subId);
+  }
+}
+
+// NEW: toggle buttons
+function toggleEventSort(eventId) {
+  subSortAscByEvent.value[eventId] = !subSortAscByEvent.value[eventId];
+}
+async function toggleReviewerSort(eventId, subId) {
+  await ensureAllReviews(eventId, subId);
+  revSortAscBySub.value[subId] = !revSortAscBySub.value[subId];
+}
+
+// NEW: submissions sorted by avg_score (and filtered by title)
 function filteredSubmissions(eventId) {
   const all = submissionsByEvent.value[eventId] || [];
   const q = searchQGlobal.value.trim().toLowerCase();
-  if (!q) return all;
-  return all.filter((s) => s.title.toLowerCase().includes(q));
+  const arr = q ? all.filter(s => s.title.toLowerCase().includes(q)) : [...all];
+
+  const asc = !!subSortAscByEvent.value[eventId];
+  arr.sort((a, b) => {
+    const av = Number(a.avg_score) || 0;
+    const bv = Number(b.avg_score) || 0;
+    return asc ? av - bv : bv - av;
+  });
+  return arr;
 }
+
+// Reviewer search (unchanged)
 function filteredReviewerPool(eventId, subId) {
   const pool = reviewerPoolByEvent.value[eventId] || [];
   const q = (searchQBySub.value[subId] || "").trim().toLowerCase();
-  const assigned = new Set(
-    (assignmentsBySub.value[subId] || []).map((a) => a.reviewer_id)
-  );
+  const assigned = new Set((assignmentsBySub.value[subId] || []).map(a => a.reviewer_id));
   return pool
-    .filter((u) => !assigned.has(u.id))
-    .filter(
-      (u) =>
-        !q ||
-        u.email?.toLowerCase().includes(q) ||
-        u.name?.toLowerCase().includes(q)
-    );
+    .filter(u => !assigned.has(u.id))
+    .filter(u => !q || u.email?.toLowerCase().includes(q) || u.name?.toLowerCase().includes(q));
 }
+
+// NEW: sorted reviewer assignments by score_overall
+function sortedAssignments(subId) {
+  const asc = !!revSortAscBySub.value[subId];
+  const list = (assignmentsBySub.value[subId] || []).slice();
+  list.sort((ra, rb) => {
+    const sa = Number(reviewsBySub.value[subId]?.[ra.reviewer_id]?.score_overall);
+    const sb = Number(reviewsBySub.value[subId]?.[rb.reviewer_id]?.score_overall);
+    const aVal = Number.isFinite(sa) ? sa : -Infinity; // missing scores go last
+    const bVal = Number.isFinite(sb) ? sb : -Infinity;
+    return asc ? aVal - bVal : bVal - aVal;
+  });
+  return list;
+}
+
 function toggleSelect(subId, uid) {
   const s = new Set(selectedToAddBySub.value[subId] || []);
   s.has(uid) ? s.delete(uid) : s.add(uid);
@@ -601,9 +649,7 @@ async function unassignOne(eventId, subId, reviewerId) {
 async function updateStatus(eventId, subId, status) {
   try {
     loading.value = true;
-    await axios.put(`/chair/${eventId}/submissions/${subId}/status`, {
-      status,
-    });
+    await axios.put(`/chair/${eventId}/submissions/${subId}/status`, { status });
     const subs = submissionsByEvent.value[eventId] || [];
     const idx = subs.findIndex((s) => s.id === subId);
     if (idx !== -1) subs[idx].status = status;
@@ -613,21 +659,7 @@ async function updateStatus(eventId, subId, status) {
     loading.value = false;
   }
 }
-async function massApproveAPI(eventId) {
-  const subs = submissionsByEvent.value[eventId] || [];
-  const pending = subs.filter((s) => s.status !== "approved").length;
-  if (!pending) return alert("No submissions to approve.");
-  if (!confirm(`Approve all (${pending}) pending submissions?`)) return;
-  loading.value = true;
-  try {
-    await axios.post(`/chair/${eventId}/submissions/approve-all`);
-    await loadSubmissions(eventId);
-  } catch (e) {
-    alert(e?.response?.data?.error || "Bulk approve failed");
-  } finally {
-    loading.value = false;
-  }
-}
+
 function eventAvgScore(eventId) {
   const subs = submissionsByEvent.value[eventId] || [];
   const valid = subs.map((s) => +s.avg_score).filter(Number.isFinite);
@@ -642,11 +674,7 @@ async function submitExternalReviewer() {
   try {
     const { data } = await axios.post(
       `/external/chair/${openEventId.value}/external-reviewer`,
-      {
-        name: extName.value,
-        email: extEmail.value,
-        submissionId: targetSubmissionId.value,
-      }
+      { name: extName.value, email: extEmail.value, submissionId: targetSubmissionId.value }
     );
     generatedLink.value = data.link || data.reviewer?.link || "";
     extName.value = "";
@@ -658,21 +686,14 @@ async function submitExternalReviewer() {
   }
 }
 async function logout() {
-  try {
-    await axios.post("/auth/logout");
-  } finally {
-    router.push("/login");
-  }
+  try { await axios.post("/auth/logout"); } finally { router.push("/login"); }
 }
 
 // Track expanded external review sections
 const expandedExternalReviews = ref({});
-
 function toggleExternalReviews(subId) {
   expandedExternalReviews.value[subId] = !expandedExternalReviews.value[subId];
 }
-
-
 </script>
 
 <style scoped>
