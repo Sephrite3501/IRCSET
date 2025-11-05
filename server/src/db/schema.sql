@@ -243,4 +243,55 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 INSERT INTO users (email, password_hash, name, is_admin)
 VALUES ('admin1@example.com', crypt('StrongP@ssw0rd!', gen_salt('bf', 10)), 'Admin One', true);
 
+
+-- ====================ALTERS====================
+
+ALTER TABLE reviews
+  ADD COLUMN IF NOT EXISTS score_technical     INTEGER CHECK (score_technical BETWEEN 1 AND 5),
+  ADD COLUMN IF NOT EXISTS score_relevance     INTEGER CHECK (score_relevance BETWEEN 1 AND 5),
+  ADD COLUMN IF NOT EXISTS score_innovation    INTEGER CHECK (score_innovation BETWEEN 1 AND 5),
+  ADD COLUMN IF NOT EXISTS score_writing       INTEGER CHECK (score_writing BETWEEN 1 AND 5),
+  ADD COLUMN IF NOT EXISTS score_overall       NUMERIC(4,2) CHECK (score_overall BETWEEN 0 AND 5),
+  ADD COLUMN IF NOT EXISTS comments_committee  TEXT,
+  ADD COLUMN IF NOT EXISTS review_submitted    BOOLEAN DEFAULT FALSE;
+
+-- ==================== EXTERNAL REVIEWERS FEATURE ====================
+CREATE TABLE external_reviewers (
+  id SERIAL PRIMARY KEY,
+  event_id INT REFERENCES events(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  email TEXT,
+  invite_token TEXT UNIQUE NOT NULL,
+  status TEXT DEFAULT 'invited' CHECK (status IN ('invited', 'submitted')),
+  created_at TIMESTAMP DEFAULT NOW(),
+  expires_at TIMESTAMP
+);
+
+ALTER TABLE assignments
+  ADD COLUMN external_reviewer_id INT REFERENCES external_reviewers(id); 
+
+ALTER TABLE assignments ADD COLUMN event_id INT REFERENCES events(id) ON DELETE CASCADE;
+
+ALTER TABLE assignments ALTER COLUMN reviewer_user_id DROP NOT NULL;
+
+ALTER TABLE reviews
+ADD COLUMN external_reviewer_id INT REFERENCES external_reviewers(id) ON DELETE CASCADE;
+
+ALTER TABLE reviews
+ADD CONSTRAINT unique_external_review UNIQUE (submission_id, external_reviewer_id);
+
+ALTER TABLE reviews ALTER COLUMN reviewer_user_id DROP NOT NULL;
+
+ALTER TABLE reviews
+ADD CONSTRAINT reviewer_xor_external_check
+CHECK (
+  (reviewer_user_id IS NOT NULL AND external_reviewer_id IS NULL)
+  OR (reviewer_user_id IS NULL AND external_reviewer_id IS NOT NULL)
+);
+
+
+ALTER TABLE submissions
+ADD CONSTRAINT submissions_status_check
+CHECK (status IN ('approved', 'rejected'));
+
 COMMIT;

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>External Review Invitation</title>
+  </head>
+  <body style="font-family: Arial, sans-serif; background-color: #f9fafb; padding: 20px;">
+    <div style="max-width: 600px; margin: auto; background: #fff; border-radius: 10px; padding: 20px; border: 1px solid #ddd;">
+      <h2 style="color: #4f46e5;">External Review Invitation</h2>
+      <p>Dear {{name}},</p>
+      <p>
+        You have been invited to serve as an <strong>external reviewer</strong> for the event
+        <strong>{{eventName}}</strong>.
+      </p>
+      <p>
+        The paper assigned to you is:
+        <br /><strong>“{{paperTitle}}”</strong>
+      </p>
+      <p>
+        Event Duration: {{eventStart}} → {{eventEnd}}
+      </p>
+      <p>
+        You can submit your review using the secure link below:
+      </p>
+      <p style="margin: 20px 0;">
+        <a href="{{reviewLink}}" style="background: #4f46e5; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;">
+          Open Review Link
+        </a>
+      </p>
+      <p>If the button above doesn't work, you can also open this URL directly:</p>
+      <p style="word-break: break-all;">{{reviewLink}}</p>
+      <br />
+      <p>Thank you for your contribution.</p>
+      <p>— IRC Conference Committee</p>
+    </div>
+  </body>
+</html>

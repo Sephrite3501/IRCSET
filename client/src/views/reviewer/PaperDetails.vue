@@ -1,8 +1,10 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-10 px-6">
-    <div class="max-w-7xl mx-auto bg-white shadow-xl rounded-2xl overflow-hidden flex flex-col md:flex-row">
+  <div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex justify-center items-center py-6 px-4">
+    <div
+      class="w-[95vw] h-[90vh] bg-white shadow-2xl rounded-2xl overflow-hidden flex flex-col md:flex-row"
+    >
       <!-- LEFT: PDF Preview -->
-      <div class="md:w-2/3 bg-slate-50 border-r border-slate-200 flex flex-col">
+      <div class="md:w-3/5 bg-slate-50 border-r border-slate-200 flex flex-col">
         <div class="p-5 border-b bg-white">
           <h2 class="text-lg font-semibold text-gray-800 flex items-center justify-between">
             Paper Preview
@@ -20,14 +22,14 @@
           <iframe
             v-if="paper?.id && eventId"
             :src="`${API_BASE}/events/${eventId}/submissions/${paper.id}/initial.pdf`"
-            class="w-full h-[85vh] border rounded-lg"
+            class="w-full h-full border rounded-lg"
           ></iframe>
           <p v-else class="text-gray-500 italic">No PDF uploaded.</p>
         </div>
       </div>
 
       <!-- RIGHT: Review Information + Form -->
-      <div class="md:w-1/3 p-8 overflow-y-auto">
+      <div class="md:w-2/5 p-10 overflow-y-auto">
         <!-- Header -->
         <div class="flex items-start justify-between mb-6">
           <h1 class="text-2xl font-bold text-gray-900 leading-snug">
@@ -50,7 +52,7 @@
             <p class="text-sm text-gray-700">
               <strong>Status:</strong>
               <span
-                :class="[
+                :class="[ 
                   'px-2 py-0.5 rounded text-xs font-semibold',
                   paper.status === 'submitted'
                     ? 'bg-blue-100 text-blue-700'
@@ -140,9 +142,9 @@
               <label class="block text-sm font-medium text-gray-700 mb-1">Comments for Author</label>
               <textarea
                 v-model="commentsAuthor"
-                rows="6"
+                @input="autoResize($event)"
                 placeholder="Provide constructive feedback for the author..."
-                class="w-full border border-gray-300 rounded-md p-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 resize-y min-h-[150px]"
+                class="w-full border border-gray-300 rounded-md p-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 resize-none overflow-hidden min-h-[150px]"
                 required
               ></textarea>
             </div>
@@ -151,9 +153,9 @@
               <label class="block text-sm font-medium text-gray-700 mb-1">Comments for Committee</label>
               <textarea
                 v-model="commentsCommittee"
-                rows="6"
+                @input="autoResize($event)"
                 placeholder="Private notes for the committee..."
-                class="w-full border border-gray-300 rounded-md p-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 resize-y min-h-[150px]"
+                class="w-full border border-gray-300 rounded-md p-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 resize-none overflow-hidden min-h-[150px]"
               ></textarea>
             </div>
 
@@ -313,4 +315,10 @@ const authorsList = computed(() => {
   }
   return [];
 });
+
+function autoResize(e) {
+  const el = e.target;
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + "px";
+}
 </script>

@@ -106,20 +106,30 @@ export async function getInitialPdf(req, res) {
     if (!sid) return res.status(400).json({ error: 'Bad submission id' });
 
     const q = await appDb.query(
-      `SELECT id, event_id, author_user_id, pdf_path
-         FROM submissions WHERE id=$1`,
+      `SELECT id, event_id, author_user_id, pdf_path FROM submissions WHERE id=$1`,
       [sid]
     );
     if (!q.rowCount) return res.status(404).json({ error: 'Not found' });
     const sub = q.rows[0];
 
-    // permission
-    const allowed = await canUserSeeSubmission(req.user, sid);
+    // 🧩 NEW: Allow either logged-in user OR valid external token
+    let allowed = false;
+
+    if (req.user) {
+      allowed = await canUserSeeSubmission(req.user, sid);
+    } else if (req.params.token) {
+      const tokenCheck = await appDb.query(
+        `SELECT id FROM external_reviewers WHERE invite_token = $1 AND expires_at > NOW()`,
+        [req.params.token]
+      );
+      allowed = tokenCheck.rowCount > 0;
+    }
+
     if (!allowed) return res.status(403).json({ error: 'Forbidden' });
 
-    // initial PDFs live under: uploads/events/:eventId/...
+    // Continue existing logic
     const baseDir = path.resolve(process.cwd(), 'uploads', 'events', String(sub.event_id));
-    const stored = path.normalize(sub.pdf_path || ''); // already stored relative like uploads/events/:eid/xxx.pdf
+    const stored = path.normalize(sub.pdf_path || '');
     const full = path.resolve(process.cwd(), stored);
 
     if (!startsWithDir(full, baseDir)) {
@@ -135,15 +145,17 @@ export async function getInitialPdf(req, res) {
       fullPath: full,
       filename,
       traceId,
-      actorUserId: req.user.uid,
+      actorUserId: req.user?.uid || null,
       action: 'initial.download',
       entityId: sid,
       forceDownload
     });
   } catch (_e) {
+    console.error("💥 [ERROR] getInitialPdf:", _e);
     return res.status(500).json({ error: 'Server error' });
   }
 }
+
 
 /** GET final submission PDF */
 export async function getFinalPdf(req, res) {

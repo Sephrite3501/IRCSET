@@ -108,3 +108,33 @@ export const sendEventRegistrationEmail = async (to, name, eventInfo = {}) => {
     throw new Error('Failed to send event registration email');
   }
 };
+
+
+// Send external review invitation email
+export const sendExternalReviewInvite = async (to, name, link, paperInfo = {}, eventInfo = {}) => {
+  const traceId = `EMAIL-EXT-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+  try {
+    const subject = `External Review Invitation: ${paperInfo.title || 'Paper Submission'}`;
+
+    // Load template (create it in templates/external-review-invite.html)
+    const html = loadTemplate('external-review-invite.html')
+      .replace('{{name}}', name || 'Reviewer')
+      .replace('{{paperTitle}}', paperInfo.title || 'Untitled Paper')
+      .replace('{{eventName}}', eventInfo.name || 'Unnamed Event')
+      .replace('{{eventStart}}', eventInfo.start_date || 'N/A')
+      .replace('{{eventEnd}}', eventInfo.end_date || 'N/A')
+      .replace('{{reviewLink}}', link);
+
+    await transporter.sendMail({
+      from: `"IRC Conference Committee" <${process.env.MAIL_USER}>`,
+      to,
+      subject,
+      html,
+    });
+
+    console.log(`[${traceId}] External review invitation email sent to ${to}`);
+  } catch (err) {
+    console.error(`[${traceId}] Failed to send external review invitation:`, err);
+    throw new Error('Failed to send external review invitation');
+  }
+};

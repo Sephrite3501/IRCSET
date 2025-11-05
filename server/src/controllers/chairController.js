@@ -1,7 +1,11 @@
 // server/src/controllers/chairController.js
 import { appDb } from '../db/pool.js';
 import { logSecurityEvent } from '../utils/logSecurityEvent.js';
+import { sendExternalReviewInvite } from "../services/emailService.js";
 import crypto from "crypto";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 /**
  * GET /chair/:eventId/submissions
@@ -527,41 +531,57 @@ export async function getApprovedSubmissions(req, res) {
 //External Reviewer related
 export async function createExternalReviewer(req, res) {
   const { eventId } = req.params;
-  const { name, email, submissionId } = req.body;
-
-  if (!name || !submissionId)
-    return res.status(400).json({ error: "Missing name or submission ID" });
+  const { submissionId, name, email } = req.body;
 
   try {
-    const token = crypto.randomBytes(32).toString("hex");
+    // Generate token and expiration
+    const inviteToken = crypto.randomBytes(24).toString("hex");
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    // Insert external reviewer
-    const { rows: [reviewer] } = await appDb.query(
-      `INSERT INTO external_reviewers (event_id, name, email, invite_token, expires_at)
-       VALUES ($1, $2, $3, $4, NOW() + interval '7 days')
-       RETURNING *`,
-      [eventId, name, email, token]
+    // 1️⃣ Insert into external_reviewers table
+    const reviewerRes = await appDb.query(
+      `INSERT INTO external_reviewers (name, email, invite_token, expires_at)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id`,
+      [name, email, inviteToken, expiresAt]
     );
+    const externalReviewerId = reviewerRes.rows[0].id;
 
-    // Link to specific paper
+    // 2️⃣ Create assignment
     await appDb.query(
-      `INSERT INTO assignments (event_id, submission_id, external_reviewer_id, assigned_at)
-       VALUES ($1, $2, $3, NOW())`,
-      [eventId, submissionId, reviewer.id]
+      `INSERT INTO assignments (event_id, submission_id, external_reviewer_id)
+       VALUES ($1, $2, $3)`,
+      [eventId, submissionId, externalReviewerId]
     );
 
+    // 3️⃣ Generate review link
+    const reviewLink = `${process.env.FRONTEND_BASE_URL}/external-review/${inviteToken}`;
+    const pdfLink = `${process.env.BACKEND_BASE_URL}/external/${inviteToken}/submissions/${submissionId}/initial.pdf`;
+
+
+    // 4️⃣ Fetch event and paper details
+    const [eventRes, subRes] = await Promise.all([
+      appDb.query(`SELECT name, start_date, end_date FROM events WHERE id = $1`, [eventId]),
+      appDb.query(`SELECT title FROM submissions WHERE id = $1`, [submissionId])
+    ]);
+    const eventInfo = eventRes.rows[0] || {};
+    const paperInfo = subRes.rows[0] || {};
+
+    // 5️⃣ Send email (if email provided)
+    if (email) {
+      await sendExternalReviewInvite(email, name, reviewLink, paperInfo, eventInfo);
+      console.log(`✅ Sent external review email to ${email}`);
+    }
+
+    // 6️⃣ Respond success
     res.json({
       ok: true,
-      reviewer: {
-        name,
-        link: `${process.env.FRONTEND_BASE_URL || "http://localhost:8080"}/external-review/${token}`,
-      },
+      link: reviewLink
     });
   } catch (err) {
-    console.error("Error creating external reviewer:", err);
-    res.status(500).json({ error: "Database error while creating external reviewer" });
+    console.error("❌ Error creating external reviewer:", err);
+    res.status(500).json({ error: "Failed to create external reviewer" });
   }
 }
-
 
 

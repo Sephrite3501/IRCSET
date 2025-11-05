@@ -210,16 +210,25 @@
                                     </p>
                                   </div>
 
-                                  <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                  <div class="flex flex-col gap-5 mt-4">
                                     <div>
-                                      <label class="text-sm font-semibold text-gray-700 block mb-1">Comments for Author</label>
-                                      <div class="border border-gray-200 bg-gray-50 rounded-lg p-3 text-sm text-gray-800 whitespace-pre-line h-28 overflow-y-auto">
+                                      <label class="text-sm font-semibold text-gray-700 block mb-1">
+                                        Comments for Author
+                                      </label>
+                                      <div
+                                        class="border border-gray-200 bg-gray-50 rounded-lg p-3 text-sm text-gray-800 whitespace-pre-line h-28 overflow-y-auto"
+                                      >
                                         {{ reviewsBySub[sub.id][a.reviewer_id].comments_for_author || "—" }}
                                       </div>
                                     </div>
+
                                     <div>
-                                      <label class="text-sm font-semibold text-gray-700 block mb-1">Comments for Committee</label>
-                                      <div class="border border-gray-200 bg-gray-50 rounded-lg p-3 text-sm text-gray-800 whitespace-pre-line h-28 overflow-y-auto">
+                                      <label class="text-sm font-semibold text-gray-700 block mb-1">
+                                        Comments for Committee
+                                      </label>
+                                      <div
+                                        class="border border-gray-200 bg-gray-50 rounded-lg p-3 text-sm text-gray-800 whitespace-pre-line h-28 overflow-y-auto"
+                                      >
                                         {{ reviewsBySub[sub.id][a.reviewer_id].comments_committee || "—" }}
                                       </div>
                                     </div>
@@ -329,7 +338,7 @@
                       </div>
                       <div class="flex justify-end mb-4">
                         <button @click="openExternalModal(sub.id)"
-                          class="px-3 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition">
+                          class="mt-3 px-4 py-2 rounded-md bg-indigo-600 text-white text-sm w-full font-medium hover:bg-indigo-700">
                           + Add External Reviewer
                         </button>
                       </div>

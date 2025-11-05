@@ -1,4 +1,5 @@
 import express from "express";
+import { sendExternalReviewInvite } from '../services/emailService.js';
 import {
   getExternalReviewPage,
   submitExternalReview,

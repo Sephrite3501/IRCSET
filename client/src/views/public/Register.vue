@@ -91,7 +91,7 @@ async function submit() {
         Create Account
       </h1>
       <p class="text-gray-500 text-center mb-8 text-sm">
-        Join IRCSET to submit or review conference papers
+        Join IRC-SET to submit or review conference papers
       </p>
 
       <!-- Form -->

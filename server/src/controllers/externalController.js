@@ -2,6 +2,8 @@ import { appDb } from '../db/pool.js';
 import { ApiError } from '../lib/ApiError.js';
 import { cleanText } from '../utils/validators.js';
 import { logSecurityEvent } from '../utils/logSecurityEvent.js';
+import { sendExternalReviewInvite } from '../services/emailService.js';
+
 
 
 export async function getExternalReviewPage(req, res) {

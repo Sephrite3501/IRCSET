@@ -93,7 +93,7 @@ async function submit() {
     <div class="w-full max-w-sm bg-white border border-slate-200 shadow-xl rounded-xl p-8">
       <!-- Header -->
       <h1 class="text-3xl font-bold text-center text-indigo-700 mb-2 tracking-tight">
-        IRCSET Portal
+        IRC-SET Portal
       </h1>
       <p class="text-gray-500 text-center mb-8 text-sm">
         Sign in to access submissions and reviews
