@@ -85,7 +85,6 @@ const markTouched = (field) => {
 }
 
 onMounted(() => {
-  document.title = 'Verify OTP | IRC'
   // read email from query first, then sessionStorage (set by Login page)
   email.value = String(route.query.email || sessionStorage.getItem('otp_email') || '')
   if (!email.value) {
@@ -136,7 +135,7 @@ async function onSubmit() {
     if (u.is_admin) {
       await router.replace({ path: '/admin/users' })
     } else {
-      await router.replace({ path: '/userprofile' })
+      await router.replace({ path: '/' })
     }
   } catch (err) {
     errorMessage.value = getFriendlyError(err, 'OTP verification failed.', refId)

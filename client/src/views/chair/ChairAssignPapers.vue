@@ -123,13 +123,13 @@
                       <div class="flex gap-2 mt-2 md:mt-0">
                         <button @click="updateStatus(ev.id, sub.id, 'approved')"
                           class="px-3 py-1 text-xs rounded bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50"
-                          :disabled="loading || sub.n_submitted < sub.n_assigned">
+                          > 
                           Approve
                         </button>
 
                         <button @click="updateStatus(ev.id, sub.id, 'rejected')"
                           class="px-3 py-1 text-xs rounded bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
-                          :disabled="loading || sub.n_submitted < sub.n_assigned">
+                          >
                           Reject
                         </button>
                       </div>

@@ -27,6 +27,7 @@ function loadScript(src) {
 }
 
 onMounted(async () => {
+  document.title = 'IRC-SET';
   try {
     await loadScript(`https://www.google.com/recaptcha/api.js?render=${SITE_KEY}`);
   } catch {
