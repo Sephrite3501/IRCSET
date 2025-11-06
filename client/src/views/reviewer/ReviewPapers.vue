@@ -128,20 +128,14 @@
                     <!-- Action -->
                     <td class="p-3 text-center">
                       <RouterLink
-                        :to="`/review/${event.id}/${paper.id}`"
+                        :to="toReviewLink(event.id, paper.id)"
                         class="font-medium inline-block px-3 py-1.5 rounded-md transition"
-                        :class="
-                          paper.review_status === 'submitted'
-                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                            : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
-                        "
+                        :class="paper.review_status === 'submitted'
+                          ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                          : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'"
                       >
-                        {{
-                          paper.review_status === 'submitted'
-                            ? 'Edit Review'
-                            : 'Review'
-                        }}
-                      </RouterLink>
+                        {{ paper.review_status === 'submitted' ? 'Edit Review' : 'Review' }}
+                    </RouterLink>
                     </td>
                   </tr>
                 </tbody>
@@ -167,69 +161,136 @@ const loadingEventId = ref(null);
 
 onMounted(fetchReviewerEvents);
 
+/** Strip control chars and angle brackets; clamp length. Safe for display. */
+function cleanText(input, max = 2000) {
+  return String(input ?? "")
+    .replace(/[\u0000-\u001F\u007F]/g, "")
+    .replace(/[<>]/g, "")
+    .trim()
+    .slice(0, max);
+}
+
+/** Accept only positive integer-ish IDs (string or number). Return null if bad. */
+function toSafeId(v) {
+  if (typeof v === "number" && Number.isInteger(v) && v > 0) return String(v);
+  if (typeof v === "string" && /^[1-9]\d*$/.test(v)) return v;
+  return null;
+}
+
+/** Safely coerce an event object coming from API. */
+function coerceEvent(raw) {
+  const id = toSafeId(raw?.id);
+  return id
+    ? {
+        id,
+        name: cleanText(raw?.name, 120),
+        year: cleanText(raw?.year ?? "", 10),
+        description: cleanText(raw?.description ?? "", 500),
+      }
+    : null;
+}
+
+/** Safely coerce a paper/assignment row. */
+function coercePaper(raw) {
+  const id = toSafeId(raw?.id);
+  if (!id) return null;
+  const status = cleanText(raw?.status ?? "", 40);
+  const review_status = cleanText(raw?.review_status ?? "", 40);
+  const assigned_at = raw?.assigned_at ? String(raw.assigned_at) : null;
+  const due_at = raw?.due_at ? String(raw.due_at) : null;
+
+  return {
+    id,
+    title: cleanText(raw?.title ?? "Untitled", 300),
+    status,
+    review_status,
+    assigned_at,
+    due_at,
+  };
+}
+
+/** Build the review route path safely. Falls back to “#” if invalid. */
+function toReviewLink(eventId, paperId) {
+  const e = toSafeId(eventId);
+  const p = toSafeId(paperId);
+  return e && p ? `/review/${encodeURIComponent(e)}/${encodeURIComponent(p)}` : "#";
+}
+
 // 1️⃣ Fetch all events and their paper counts
 async function fetchReviewerEvents() {
   try {
-    const res = await axios.get("/reviewer/events", { withCredentials: true });
-    events.value = res.data.items || [];
+    const res = await api.get("/reviewer/events", { withCredentials: true });
+    const rawEvents = res.data?.items || [];
+    // sanitize + drop invalid
+    events.value = rawEvents.map(coerceEvent).filter(Boolean);
 
     // Prefetch counts for each event
     for (const ev of events.value) {
       try {
-        const countRes = await axios.get(
-          `/reviewer/events/${ev.id}/reviewer/assignments`,
-          { withCredentials: true }
-        );
-        const papers = countRes.data.items || [];
-        ev.assignmentCount = papers.length;
-        assignmentsMap.value[ev.id] = []; // store empty until expanded
+        const countRes = await api.get(`/reviewer/events/${ev.id}/reviewer/assignments`, {
+          withCredentials: true,
+        });
+        const rows = (countRes.data?.items || [])
+          .map(coercePaper)
+          .filter(Boolean);
+
+        ev.assignmentCount = rows.length;
+        assignmentsMap.value[ev.id] = []; // defer storing full list until expanded
       } catch {
         ev.assignmentCount = "—";
+        assignmentsMap.value[ev.id] = [];
       }
     }
   } catch (e) {
     console.error("Failed to fetch reviewer events", e);
+    events.value = [];
   }
 }
 
+
 async function toggleEvent(eventId) {
-  if (expandedEvents.value.has(eventId)) {
-    expandedEvents.value.delete(eventId);
+  const safeId = toSafeId(eventId);
+  if (!safeId) return;
+
+  if (expandedEvents.value.has(safeId)) {
+    expandedEvents.value.delete(safeId);
     return;
   }
 
-  expandedEvents.value.add(eventId);
+  expandedEvents.value.add(safeId);
 
-  if (!assignmentsMap.value[eventId]?.length) {
-    loadingEventId.value = eventId;
+  if (!assignmentsMap.value[safeId]?.length) {
+    loadingEventId.value = safeId;
     try {
-      const res = await axios.get(
-        `/reviewer/events/${eventId}/reviewer/assignments`,
-        { withCredentials: true }
-      );
-      assignmentsMap.value[eventId] = res.data.items || [];
+      const res = await api.get(`/reviewer/events/${safeId}/reviewer/assignments`, {
+        withCredentials: true,
+      });
+      assignmentsMap.value[safeId] = (res.data?.items || [])
+        .map(coercePaper)
+        .filter(Boolean);
     } catch (e) {
       console.error("Error loading assignments", e);
-      assignmentsMap.value[eventId] = [];
+      assignmentsMap.value[safeId] = [];
     } finally {
       loadingEventId.value = null;
     }
   }
 }
 
+
 function getAssignments(eventId) {
-  return assignmentsMap.value[eventId] || [];
+  const safeId = toSafeId(eventId);
+  return (safeId && assignmentsMap.value[safeId]) || [];
 }
 
 function formatDate(dateStr) {
   if (!dateStr) return "-";
   const d = new Date(dateStr);
-  return d.toLocaleDateString("en-SG", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  return isNaN(d.getTime())
+    ? "-"
+    : d.toLocaleDateString("en-SG", { day: "2-digit", month: "short", year: "numeric" });
 }
+
 </script>
 
 <style scoped>

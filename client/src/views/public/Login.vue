@@ -1,18 +1,53 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import axios from "axios";
 
 const router = useRouter();
 
-const email = ref("");
-const password = ref("");
+const rawEmail = ref("");
+const rawPassword = ref("");
 const loading = ref(false);
 const errorMsg = ref("");
 
+// keep your current env var key (change to VITE_API_BASE if you use that elsewhere)
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3005";
 const SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
+// Lenient: safe to run on every keystroke
+function sanitizeEmailLoose(input) {
+  return String(input ?? "")
+    .toLowerCase()
+    .replace(/[\u0000-\u001F\u007F]/g, "")   // strip control chars
+    .replace(/[^a-z0-9._%+\-@]/g, "")        // keep typical email chars
+    .slice(0, 254);
+}
+
+// Strict: only used during validate()/submit()
+function isValidEmailShape(e) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+}
+
+function sanitizePasswordLoose(input) {
+  return String(input ?? "")
+    .replace(/[\u0000-\u001F\u007F]/g, "")   // strip control chars
+    .slice(0, 256)
+    .trim();
+}
+
+function getEmail() { return sanitizeEmailLoose(rawEmail.value).trim(); }
+function getPassword() { return sanitizePasswordLoose(rawPassword.value); }
+
+function validate() {
+  const e = getEmail();
+  const p = getPassword();
+  if (!isValidEmailShape(e)) return "Please enter a valid email address.";
+  if (!p) return "Please enter your password.";
+  if (p.length < 8) return "Password must be at least 8 characters.";
+  return null;
+}
+
+/* ---------------- Recaptcha loader/executor ---------------- */
 function loadScript(src) {
   return new Promise((resolve, reject) => {
     if (document.querySelector(`script[src="${src}"]`)) return resolve();
@@ -27,16 +62,19 @@ function loadScript(src) {
 }
 
 onMounted(async () => {
-  document.title = 'IRC-SET';
+  document.title = "IRC-SET";
   try {
-    await loadScript(`https://www.google.com/recaptcha/api.js?render=${SITE_KEY}`);
+    if (SITE_KEY) {
+      await loadScript(`https://www.google.com/recaptcha/api.js?render=${SITE_KEY}`);
+    }
   } catch {
-    // If it fails, submit() will show a clearer message
+    // submit() will surface a clearer error if grecaptcha is unavailable
   }
 });
 
 const executeRecaptcha = () =>
   new Promise((resolve, reject) => {
+    if (!SITE_KEY) return reject(new Error("Missing reCAPTCHA site key"));
     if (!window.grecaptcha || typeof window.grecaptcha.ready !== "function") {
       return reject(new Error("reCAPTCHA not loaded"));
     }
@@ -47,32 +85,41 @@ const executeRecaptcha = () =>
     });
   });
 
+/* ---------------- Submit ---------------- */
 async function submit() {
   if (loading.value) return;
   errorMsg.value = "";
-  loading.value = true;
 
+  const v = validate();
+  if (v) {
+    errorMsg.value = v;
+    return;
+  }
+
+  loading.value = true;
   try {
     const api = axios.create({ baseURL: API_BASE, withCredentials: true });
 
-    // Get CSRF cookie (your server expects it)
+    // CSRF cookie (required by your server)
     await api.get("/auth/csrf-token");
 
-    // Get v3 token
+    // reCAPTCHA v3 token
     const captchaToken = await executeRecaptcha();
 
-    const e = email.value.trim().toLowerCase();
-
-    // Request OTP
+    // Request OTP initiation
     await api.post(
       "/auth/login",
-      { email: e, password: password.value, captchaToken },         // body
-      { headers: { "X-Captcha-Token": captchaToken } }              // header
+      {
+        email: email.value,            // sanitized, lowercased
+        password: password.value,      // trimmed, control chars removed
+        captchaToken,                  // body
+      },
+      { headers: { "X-Captcha-Token": captchaToken } } // header too
     );
 
-    // Carry email to OTP page
-    sessionStorage.setItem("otp_email", e);
-    router.push({ name: "verify-otp", query: { email: e } });
+    // Carry email to OTP page (also in query string)
+    sessionStorage.setItem("otp_email", email.value);
+    router.push({ name: "verify-otp", query: { email: email.value } });
   } catch (err) {
     const data = err?.response?.data;
     errorMsg.value =
@@ -101,20 +148,23 @@ async function submit() {
       </p>
 
       <!-- Form -->
-      <form @submit.prevent="submit" class="space-y-5">
+      <form @submit.prevent="submit" class="space-y-5" novalidate>
         <!-- Email -->
         <div>
           <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
             Email
           </label>
           <input
-            id="email"
-            v-model="email"
-            type="email"
-            required
-            placeholder="you@example.com"
-            class="w-full rounded-md border border-gray-300 text-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition"
-          />
+              id="email"
+              v-model="rawEmail"
+              @input="rawEmail = sanitizeEmail($event.target.value)"
+              type="email"
+              inputmode="email"
+              autocomplete="email"
+              required
+              placeholder="you@example.com"
+              class="w-full rounded-md border border-gray-300 text-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition"
+            />
         </div>
 
         <!-- Password -->
@@ -124,8 +174,10 @@ async function submit() {
           </label>
           <input
             id="password"
-            v-model="password"
+            v-model="rawPassword"
+            @input="rawPassword = sanitizePassword($event.target.value)"
             type="password"
+            autocomplete="current-password"
             required
             placeholder="••••••••"
             class="w-full rounded-md border border-gray-300 text-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition"

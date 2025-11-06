@@ -254,15 +254,13 @@ async function submitReview() {
   submitting.value = true;
   message.value = "";
 
-  try {
-    const scores = [scoreTechnical.value, scoreRelevance.value, scoreInnovation.value, scoreWriting.value];
-    if (!scores.every((n) => Number.isInteger(n) && n >= 1 && n <= 5)) {
-      message.value = "⚠️ All scores must be between 1 and 5.";
-      messageClass.value = "text-yellow-600";
-      submitting.value = false;
-      return;
-    }
+  // Validate & sanitize client-side
+  if (!validateReview()) {
+    submitting.value = false;
+    return;
+  }
 
+  try {
     const res = await axios.post(
       `/reviewer/events/${eventId}/papers/${paperId}/reviews`,
       {
@@ -320,5 +318,42 @@ function autoResize(e) {
   const el = e.target;
   el.style.height = "auto";
   el.style.height = el.scrollHeight + "px";
+}
+
+function sanitizeText(input: string, maxLen = 2000): string {
+  return input
+    ?.replace(/[<>]/g, "")         // strip HTML brackets
+    .replace(/[\u0000-\u001F\u007F]/g, "") // remove control chars
+    .trim()
+    .slice(0, maxLen);
+}
+
+function validateReview() {
+  const scoreFieldsValid = [scoreTechnical, scoreRelevance, scoreInnovation, scoreWriting].every(
+    (ref) => Number.isInteger(ref.value) && ref.value >= 1 && ref.value <= 5
+  );
+
+  if (!scoreFieldsValid) {
+    message.value = "⚠️ All scores must be between 1 and 5.";
+    messageClass.value = "text-yellow-600";
+    return false;
+  }
+
+  commentsAuthor.value = sanitizeText(commentsAuthor.value, 3000);
+  commentsCommittee.value = sanitizeText(commentsCommittee.value, 3000);
+
+  if (!commentsAuthor.value) {
+    message.value = "⚠️ Please provide comments for the author.";
+    messageClass.value = "text-yellow-600";
+    return false;
+  }
+
+  if (commentsAuthor.value.length < 10) {
+    message.value = "⚠️ Comments for author are too short.";
+    messageClass.value = "text-yellow-600";
+    return false;
+  }
+
+  return true;
 }
 </script>

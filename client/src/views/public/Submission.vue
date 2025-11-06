@@ -13,17 +13,14 @@
             class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
           >
             <option disabled value="">Select Event</option>
-            <option
-              v-for="ev in events"
-              :key="ev.id"
-              :value="ev.id"
-            >
+            <option v-for="ev in events" :key="ev.id" :value="ev.id">
               {{ ev.name }}
               <span v-if="ev.start_date || ev.end_date">
                 — {{ formatEventDate(ev.start_date, ev.end_date) }}
               </span>
             </option>
           </select>
+          <p v-if="errors.eventId" class="text-sm text-red-600 mt-1">{{ errors.eventId }}</p>
         </div>
 
         <!-- Title -->
@@ -31,10 +28,12 @@
           <label class="block text-gray-800 font-medium mb-2">Paper Title</label>
           <input
             v-model="title"
+            @input="onTitleInput"
             type="text"
             placeholder="Enter your paper title"
             class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
           />
+          <p v-if="errors.title" class="text-sm text-red-600 mt-1">{{ errors.title }}</p>
         </div>
 
         <!-- Abstract -->
@@ -42,10 +41,12 @@
           <label class="block text-gray-800 font-medium mb-2">Abstract</label>
           <textarea
             v-model="abstract"
+            @input="onAbstractInput"
             rows="4"
             placeholder="Summarize your paper..."
             class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 resize-none transition"
           ></textarea>
+          <p v-if="errors.abstract" class="text-sm text-red-600 mt-1">{{ errors.abstract }}</p>
         </div>
 
         <!-- Keywords -->
@@ -53,11 +54,13 @@
           <label class="block text-gray-800 font-medium mb-2">Keywords</label>
           <input
             v-model="keywords"
+            @input="onKeywordsInput"
             type="text"
             placeholder="e.g., cybersecurity, AI, IoT"
             class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition"
           />
           <p class="text-sm text-gray-500 mt-1">Separate multiple keywords with commas.</p>
+          <p v-if="errors.keywords" class="text-sm text-red-600 mt-1">{{ errors.keywords }}</p>
         </div>
 
         <!-- IRC Member Email -->
@@ -65,10 +68,12 @@
           <label class="block text-gray-800 font-medium mb-2">IRC Member Email (optional)</label>
           <input
             v-model="ircEmail"
+            @input="onIrcEmailInput"
             type="email"
             placeholder="Enter IRC member email"
             class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition"
           />
+          <p v-if="errors.ircEmail" class="text-sm text-red-600 mt-1">{{ errors.ircEmail }}</p>
         </div>
 
         <!-- Authors -->
@@ -83,12 +88,14 @@
             <div class="flex space-x-2">
               <input
                 v-model="author.name"
+                @input="onAuthorInput(index, 'name')"
                 type="text"
                 placeholder="Author name"
                 class="flex-1 border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition"
               />
               <input
                 v-model="author.email"
+                @input="onAuthorInput(index, 'email')"
                 type="email"
                 placeholder="Email"
                 class="flex-1 border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition"
@@ -96,6 +103,7 @@
             </div>
             <input
               v-model="author.organization"
+              @input="onAuthorInput(index, 'organization')"
               type="text"
               placeholder="Organization / Institution"
               class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition"
@@ -108,6 +116,11 @@
             >
               ✕ Remove
             </button>
+
+            <div v-if="authorErrors[index]" class="text-sm text-red-600">
+              <p v-if="authorErrors[index].name">{{ authorErrors[index].name }}</p>
+              <p v-if="authorErrors[index].email">{{ authorErrors[index].email }}</p>
+            </div>
           </div>
 
           <button
@@ -126,7 +139,7 @@
         <div
           class="w-full h-56 border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-center bg-slate-50 hover:bg-slate-100 transition-all duration-300 relative group"
           :class="{ 'bg-indigo-50 border-indigo-500': isDragging }"
-          @dragover.prevent="isDragging = true"
+          @dragover.prevent="onDragOver"
           @dragleave.prevent="isDragging = false"
           @drop.prevent="handleDrop"
         >
@@ -147,14 +160,16 @@
             <p class="text-gray-600">
               <span class="font-semibold text-indigo-600">Upload PDF</span> or drag & drop
             </p>
+            <p class="text-xs text-gray-500 mt-1">Only one .pdf file (max {{ MAX_FILE_MB }} MB)</p>
           </div>
           <input
             type="file"
-            accept="application/pdf"
+            accept="application/pdf,.pdf"
             class="absolute inset-0 opacity-0 cursor-pointer"
             @change="handleFileSelect"
           />
         </div>
+        <p v-if="errors.file" class="text-sm text-red-600 mt-2">{{ errors.file }}</p>
 
         <!-- File Preview -->
         <div v-if="files.length" class="mt-6 w-full">
@@ -173,9 +188,9 @@
         <button
           @click="submitPaper"
           class="mt-8 w-full bg-indigo-600 text-white font-semibold py-3 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
-          :disabled="!eventId || !title || files.length === 0"
+          :disabled="!canSubmit || submitting"
         >
-          Submit Paper
+          {{ submitting ? 'Submitting…' : 'Submit Paper' }}
         </button>
 
         <!-- Message -->
@@ -196,11 +211,44 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue"
+import { ref, onMounted, computed } from "vue"
 import axios from "axios"
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3005"
 
+// -------- limits & helpers --------
+const MAX_TITLE_LEN = 200
+const MAX_ABSTRACT_LEN = 4000
+const MAX_KEYWORDS_LEN = 500
+const MAX_AUTH_NAME = 120
+const MAX_AUTH_ORG = 200
+const MAX_FILE_MB = 20
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+// Normalize plain text (trim, strip control chars). Keep punctuation/symbols.
+const textClean = (s, max) =>
+  String(s ?? "")
+    .replace(/[\u0000-\u001F\u007F]/g, "")
+    .trim()
+    .slice(0, max)
+
+const keywordClean = (s) =>
+  String(s ?? "")
+    .split(",")
+    .map((k) => k.replace(/[\u0000-\u001F\u007F]/g, "").trim())
+    .filter(Boolean)
+    .slice(0, 50) // cap keyword count
+    .join(", ")
+
+const emailNorm = (s) =>
+  String(s ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._%+\-@]/g, "")
+    .slice(0, 254)
+
+// -------- state --------
 const eventId = ref("")
 const title = ref("")
 const ircEmail = ref("")
@@ -212,30 +260,20 @@ const isDragging = ref(false)
 const message = ref("")
 const messageClass = ref("info")
 const events = ref([])
+const submitting = ref(false)
 
-function addAuthor() {
-  authors.value.push({ name: "", email: "", organization: "" })
-}
+// validation error bags
+const errors = ref({
+  eventId: "",
+  title: "",
+  abstract: "",
+  keywords: "",
+  ircEmail: "",
+  file: "",
+})
+const authorErrors = ref([])
 
-function removeAuthor(index) {
-  authors.value.splice(index, 1)
-}
-
-function handleDrop(e) {
-  isDragging.value = false
-  if (e.dataTransfer.files.length) files.value = [e.dataTransfer.files[0]]
-}
-
-function handleFileSelect(e) {
-  if (e.target.files.length) files.value = [e.target.files[0]]
-}
-
-function formatSize(size) {
-  const kb = size / 1024
-  const mb = kb / 1024
-  return mb > 1 ? mb.toFixed(2) + " MB" : kb.toFixed(2) + " KB"
-}
-
+// -------- lifecycle --------
 onMounted(async () => {
   try {
     const res = await axios.get("/events", { withCredentials: true })
@@ -245,6 +283,82 @@ onMounted(async () => {
   }
 })
 
+// -------- input handlers (sanitize on type) --------
+function onTitleInput() {
+  title.value = textClean(title.value, MAX_TITLE_LEN)
+}
+function onAbstractInput() {
+  abstract.value = textClean(abstract.value, MAX_ABSTRACT_LEN)
+}
+function onKeywordsInput() {
+  keywords.value = textClean(keywords.value, MAX_KEYWORDS_LEN)
+}
+function onIrcEmailInput() {
+  ircEmail.value = emailNorm(ircEmail.value)
+}
+function onAuthorInput(idx, field) {
+  const a = authors.value[idx]
+  if (!a) return
+  if (field === "name") a.name = textClean(a.name, MAX_AUTH_NAME)
+  if (field === "email") a.email = emailNorm(a.email)
+  if (field === "organization") a.organization = textClean(a.organization, MAX_AUTH_ORG)
+}
+
+function addAuthor() {
+  authors.value.push({ name: "", email: "", organization: "" })
+  authorErrors.value.push({})
+}
+function removeAuthor(index) {
+  authors.value.splice(index, 1)
+  authorErrors.value.splice(index, 1)
+}
+
+// -------- file handling (single PDF only) --------
+function isPdf(file) {
+  const nameOk = /\.pdf$/i.test(file.name || "")
+  const typeOk = (file.type || "").toLowerCase() === "application/pdf"
+  // some browsers may not set type reliably; accept if name ends with .pdf
+  return nameOk || typeOk
+}
+function withinSize(file) {
+  return file.size <= MAX_FILE_MB * 1024 * 1024
+}
+function setSinglePdf(file) {
+  if (!file) return
+  if (!isPdf(file)) {
+    errors.value.file = "Only PDF files are allowed."
+    files.value = []
+    return
+  }
+  if (!withinSize(file)) {
+    errors.value.file = `File too large. Maximum ${MAX_FILE_MB} MB.`
+    files.value = []
+    return
+  }
+  errors.value.file = ""
+  files.value = [file] // enforce single file
+}
+
+function onDragOver(e) {
+  e.dataTransfer.dropEffect = "copy"
+  isDragging.value = true
+}
+function handleDrop(e) {
+  isDragging.value = false
+  const f = e.dataTransfer?.files?.[0]
+  setSinglePdf(f)
+}
+function handleFileSelect(e) {
+  const f = e.target?.files?.[0]
+  setSinglePdf(f)
+}
+
+function formatSize(size) {
+  const kb = size / 1024
+  const mb = kb / 1024
+  return mb > 1 ? mb.toFixed(2) + " MB" : kb.toFixed(2) + " KB"
+}
+
 function formatEventDate(start, end) {
   if (!start && !end) return ""
   const opts = { year: "numeric", month: "short", day: "numeric" }
@@ -253,11 +367,79 @@ function formatEventDate(start, end) {
   return `${s} → ${e}`
 }
 
+// -------- validation before submit --------
+function validateAll() {
+  // reset
+  errors.value = { eventId: "", title: "", abstract: "", keywords: "", ircEmail: "", file: "" }
+  authorErrors.value = authors.value.map(() => ({}))
+
+  if (!eventId.value) errors.value.eventId = "Please select an event."
+  if (!title.value) errors.value.title = "Title is required."
+  if (!abstract.value) errors.value.abstract = "Abstract is required."
+  if (ircEmail.value && !EMAIL_RE.test(ircEmail.value)) errors.value.ircEmail = "Invalid email format."
+
+  if (!files.value.length) {
+    errors.value.file = "Please attach a PDF file."
+  } else if (!isPdf(files.value[0])) {
+    errors.value.file = "Only PDF files are allowed."
+  } else if (!withinSize(files.value[0])) {
+    errors.value.file = `File too large. Maximum ${MAX_FILE_MB} MB.`
+  }
+
+  // authors validation (at least 1; each must have name + valid email)
+  if (!authors.value.length) {
+    authors.value.push({ name: "", email: "", organization: "" })
+    authorErrors.value.push({ name: "Name is required.", email: "Valid email is required." })
+  }
+
+  authors.value.forEach((a, i) => {
+    const errs = {}
+    if (!textClean(a.name, MAX_AUTH_NAME)) errs.name = "Name is required."
+    if (!EMAIL_RE.test(emailNorm(a.email))) errs.email = "Valid email is required."
+    authorErrors.value[i] = errs
+  })
+
+  // return true if no errors
+  const hasFormErrors =
+    Object.values(errors.value).some(Boolean) ||
+    authorErrors.value.some((bag) => Object.values(bag).some(Boolean))
+
+  return !hasFormErrors
+}
+
+const canSubmit = computed(() => {
+  // quick enable/disable; final gate is validateAll()
+  return Boolean(eventId.value && title.value && files.value.length === 1 && !submitting.value)
+})
+
+// -------- submit --------
 async function submitPaper() {
+  message.value = ""
+  messageClass.value = "info"
+
+  // sanitize before final validation
+  title.value = textClean(title.value, MAX_TITLE_LEN)
+  abstract.value = textClean(abstract.value, MAX_ABSTRACT_LEN)
+  keywords.value = keywordClean(keywords.value)
+  ircEmail.value = emailNorm(ircEmail.value)
+  authors.value = authors.value.map((a) => ({
+    name: textClean(a.name, MAX_AUTH_NAME),
+    email: emailNorm(a.email),
+    organization: textClean(a.organization, MAX_AUTH_ORG),
+  }))
+
+  if (!validateAll()) {
+    message.value = "Please fix the highlighted fields."
+    messageClass.value = "error"
+    return
+  }
+
+  submitting.value = true
   message.value = "Submitting..."
   messageClass.value = "info"
 
   try {
+    // CSRF first
     const csrf = await axios.get(`/auth/csrf-token`, { withCredentials: true })
     const token = csrf.data.csrfToken || csrf.data.token
 
@@ -273,7 +455,7 @@ async function submitPaper() {
       headers: { "X-CSRF-Token": token },
       method: "POST",
       body: fd,
-      credentials: "include"
+      credentials: "include",
     })
 
     const data = await res.json().catch(() => null)
@@ -281,6 +463,8 @@ async function submitPaper() {
     if (res.ok) {
       message.value = "✅ Paper submitted successfully!"
       messageClass.value = "success"
+      // optional: reset the form
+      // resetForm()
     } else {
       message.value = `❌ Submission failed: ${data?.message || res.status}`
       messageClass.value = "error"
@@ -288,6 +472,23 @@ async function submitPaper() {
   } catch (err) {
     message.value = "❌ Network error: " + err.message
     messageClass.value = "error"
+  } finally {
+    submitting.value = false
   }
+}
+
+// optional reset helper
+function resetForm() {
+  eventId.value = ""
+  title.value = ""
+  ircEmail.value = ""
+  abstract.value = ""
+  keywords.value = ""
+  authors.value = [{ name: "", email: "", organization: "" }]
+  files.value = []
+  errors.value = { eventId: "", title: "", abstract: "", keywords: "", ircEmail: "", file: "" }
+  authorErrors.value = []
+  message.value = ""
+  messageClass.value = "info"
 }
 </script>
