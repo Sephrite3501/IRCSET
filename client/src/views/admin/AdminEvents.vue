@@ -150,26 +150,30 @@
               </summary>
 
               <div class="mt-3 space-y-3">
+                <!-- per-event search box -->
                 <input
-                  v-model="searchQ"
+                  v-model="searchQByEvent[ev.id]"
+                  @input="onSearchChange(ev.id)"
                   placeholder="Search users by name/email…"
                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"
                 />
+
                 <div
                   class="max-h-40 overflow-auto bg-white border border-gray-200 rounded-md divide-y divide-gray-100"
                 >
                   <button
-                    v-for="u in userResults"
+                    v-for="u in userResultsByEvent[ev.id] || []"
                     :key="u.id"
                     class="w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 transition"
-                    :class="{ 'bg-indigo-50': selectedUserId === u.id }"
-                    @click="selectedUserId = u.id"
+                    :class="{ 'bg-indigo-50': selectedUserIdByEvent[ev.id] === u.id }"
+                    @click="selectedUserIdByEvent[ev.id] = u.id"
                   >
                     <div class="font-medium text-gray-800">{{ u.name || u.email }}</div>
                     <div class="text-xs text-gray-500">{{ u.email }}</div>
                   </button>
+
                   <p
-                    v-if="searchQ && userResults.length === 0"
+                    v-if="(searchQByEvent[ev.id] || '').length && (!userResultsByEvent[ev.id] || !userResultsByEvent[ev.id].length)"
                     class="p-2 text-xs text-gray-500 text-center"
                   >
                     No matching users
@@ -178,7 +182,7 @@
 
                 <button
                   class="w-full bg-indigo-600 text-white py-2 rounded-md text-sm font-semibold hover:bg-indigo-700 transition disabled:opacity-60"
-                  :disabled="!selectedUserId"
+                  :disabled="!selectedUserIdByEvent[ev.id]"
                   @click="assignChair(ev.id)"
                 >
                   Assign as Chair
@@ -192,10 +196,9 @@
   </div>
 </template>
 
-
 <script setup>
 import axios from 'axios'
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -204,7 +207,7 @@ const loading = ref(false)
 const errorMsg = ref('')
 const events = ref([])
 
-// map: eventId -> [{ user_id, email, name, role }]
+
 const chairsByEvent = ref({})
 
 const name = ref('')
@@ -213,12 +216,13 @@ const start_date = ref(null)
 const end_date = ref(null)
 
 const newEventId = ref(null)
-const searchQ = ref('')
-const userResults = ref([])
-const selectedUserId = ref(null)
+
+
+const searchQByEvent = ref({})          // { [eventId]: string }
+const userResultsByEvent = ref({})      // { [eventId]: array }
+const selectedUserIdByEvent = ref({})   // { [eventId]: number | null }
 
 onMounted(async () => {
-  // ensure only admins can access
   try {
     const { data } = await axios.get('/auth/me')
     const user = data?.user || null
@@ -237,7 +241,7 @@ async function loadEvents() {
   try {
     const { data } = await axios.get('/admin/events')
     events.value = data?.items || []
-    await refreshChairs()  // fetch chair mapping after events load
+    await refreshChairs()
   } catch (e) {
     errorMsg.value = e?.response?.data?.error || 'Failed to load events'
   } finally {
@@ -246,13 +250,11 @@ async function loadEvents() {
 }
 
 async function refreshChairs() {
-  // fetch chairs per event
   const map = {}
   await Promise.all(
     (events.value || []).map(async (ev) => {
       try {
         const { data } = await axios.get(`/admin/events/${ev.id}/users`)
-        // filter chairs
         map[ev.id] = (data?.items || []).filter(x => x.role === 'chair')
       } catch {
         map[ev.id] = []
@@ -275,7 +277,6 @@ async function createEvent() {
     }
     const { data } = await axios.post('/admin/events', payload)
 
-    // reset + open assign panel
     name.value = ''
     description.value = ''
     start_date.value = null
@@ -290,29 +291,30 @@ async function createEvent() {
   }
 }
 
-// debounced user search
-let timer
-watch(searchQ, (q) => {
-  clearTimeout(timer)
-  if (!q) { userResults.value = []; return }
-  timer = setTimeout(async () => {
-    try {
-      const { data } = await axios.get('/admin/users', { params: { q, limit: 20 } })
-      userResults.value = data?.items || []
-    } catch {
-      userResults.value = []
-    }
-  }, 250)
-})
+// per-event user search
+async function onSearchChange(eventId) {
+  const q = (searchQByEvent.value[eventId] || '').trim()
+  if (!q) {
+    userResultsByEvent.value[eventId] = []
+    return
+  }
+  try {
+    const { data } = await axios.get('/admin/users', { params: { q, limit: 20 } })
+    userResultsByEvent.value[eventId] = data?.items || []
+  } catch {
+    userResultsByEvent.value[eventId] = []
+  }
+}
 
 async function assignChair(eventId) {
-  if (!selectedUserId.value) return
+  const uid = selectedUserIdByEvent.value[eventId]
+  if (!uid) return
   try {
     await axios.post(`/admin/events/${eventId}/assign`, {
-      user_id: selectedUserId.value,
+      user_id: uid,
       role: 'chair',
     })
-    selectedUserId.value = null
+    selectedUserIdByEvent.value[eventId] = null
     await refreshChairs()
   } catch (e) {
     alert(e?.response?.data?.error || 'Assignment failed')
@@ -330,4 +332,3 @@ async function removeChair(eventId, userId) {
   }
 }
 </script>
-
