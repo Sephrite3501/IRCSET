@@ -219,7 +219,7 @@ function toReviewLink(eventId, paperId) {
 // 1️⃣ Fetch all events and their paper counts
 async function fetchReviewerEvents() {
   try {
-    const res = await api.get("/reviewer/events", { withCredentials: true });
+    const res = await axios.get("/reviewer/events", { withCredentials: true });
     const rawEvents = res.data?.items || [];
     // sanitize + drop invalid
     events.value = rawEvents.map(coerceEvent).filter(Boolean);
@@ -227,7 +227,7 @@ async function fetchReviewerEvents() {
     // Prefetch counts for each event
     for (const ev of events.value) {
       try {
-        const countRes = await api.get(`/reviewer/events/${ev.id}/reviewer/assignments`, {
+        const countRes = await axios.get(`/reviewer/events/${ev.id}/reviewer/assignments`, {
           withCredentials: true,
         });
         const rows = (countRes.data?.items || [])
@@ -262,7 +262,7 @@ async function toggleEvent(eventId) {
   if (!assignmentsMap.value[safeId]?.length) {
     loadingEventId.value = safeId;
     try {
-      const res = await api.get(`/reviewer/events/${safeId}/reviewer/assignments`, {
+      const res = await axios.get(`/reviewer/events/${safeId}/reviewer/assignments`, {
         withCredentials: true,
       });
       assignmentsMap.value[safeId] = (res.data?.items || [])
