@@ -1,7 +1,7 @@
 // server/src/controllers/chairController.js
 import { appDb } from '../db/pool.js';
 import { logSecurityEvent } from '../utils/logSecurityEvent.js';
-import { sendExternalReviewInvite } from "../services/emailService.js";
+import { sendExternalReviewInvite, sendSubmissionStatusEmail } from "../services/emailService.js";
 import crypto from "crypto";
 import dotenv from "dotenv";
 
@@ -467,11 +467,12 @@ export async function updateSubmissionStatus(req, res) {
   }
 
   try {
+    // Update submission status
     const result = await appDb.query(
       `UPDATE submissions
        SET status = $1, updated_at = NOW()
        WHERE id = $2 AND event_id = $3
-       RETURNING id, title, status`,
+       RETURNING id, title, status, authors`,
       [status, submissionId, eventId]
     );
 
@@ -479,9 +480,116 @@ export async function updateSubmissionStatus(req, res) {
       return res.status(404).json({ error: "Submission not found" });
     }
 
+    const submission = result.rows[0];
+
+    // Fetch event details
+    const eventResult = await appDb.query(
+      `SELECT name, start_date, end_date FROM events WHERE id = $1`,
+      [eventId]
+    );
+    const eventInfo = eventResult.rows[0] || {};
+
+    // Fetch all reviews for this submission (including external reviews)
+    const reviewsQuery = `
+      SELECT 
+        r.id AS review_id,
+        r.submission_id,
+        r.reviewer_user_id,
+        r.external_reviewer_id,
+        COALESCE(u.name, er.name) AS reviewer_name,
+        COALESCE(u.email, er.email) AS reviewer_email,
+        CASE 
+          WHEN r.external_reviewer_id IS NOT NULL THEN TRUE 
+          ELSE FALSE 
+        END AS is_external,
+        r.score_technical,
+        r.score_relevance,
+        r.score_innovation,
+        r.score_writing,
+        r.score_overall,
+        r.comments_for_author,
+        r.comments_committee,
+        r.submitted_at
+      FROM reviews r
+      LEFT JOIN users u ON r.reviewer_user_id = u.id
+      LEFT JOIN external_reviewers er ON r.external_reviewer_id = er.id
+      WHERE r.submission_id = $1 AND r.status = 'submitted'
+      ORDER BY r.submitted_at DESC;
+    `;
+    const reviewsResult = await appDb.query(reviewsQuery, [submissionId]);
+    const reviews = reviewsResult.rows || [];
+
+    // Parse authors from JSON
+    let authors = [];
+    try {
+      if (submission.authors) {
+        authors = Array.isArray(submission.authors) 
+          ? submission.authors 
+          : JSON.parse(submission.authors);
+      }
+    } catch (e) {
+      console.error("Error parsing authors:", e);
+      authors = [];
+    }
+
+    // Send emails to all authors
+    const emailPromises = [];
+    for (const author of authors) {
+      if (author.email) {
+        emailPromises.push(
+          sendSubmissionStatusEmail(
+            author.email,
+            author.name || author.email,
+            status,
+            { title: submission.title },
+            eventInfo,
+            reviews
+          ).catch(err => {
+            console.error(`Failed to send email to ${author.email}:`, err);
+            // Don't fail the whole request if email fails
+          })
+        );
+      }
+    }
+
+    // Also send to the main author if they have a different email
+    const mainAuthorResult = await appDb.query(
+      `SELECT u.email, u.name 
+       FROM submissions s
+       JOIN users u ON s.author_user_id = u.id
+       WHERE s.id = $1`,
+      [submissionId]
+    );
+    if (mainAuthorResult.rows.length > 0) {
+      const mainAuthor = mainAuthorResult.rows[0];
+      // Only send if email is different from any author email
+      const authorEmails = new Set(authors.map(a => a.email).filter(Boolean));
+      if (mainAuthor.email && !authorEmails.has(mainAuthor.email)) {
+        emailPromises.push(
+          sendSubmissionStatusEmail(
+            mainAuthor.email,
+            mainAuthor.name || mainAuthor.email,
+            status,
+            { title: submission.title },
+            eventInfo,
+            reviews
+          ).catch(err => {
+            console.error(`Failed to send email to main author ${mainAuthor.email}:`, err);
+          })
+        );
+      }
+    }
+
+    // Wait for all emails to be sent (but don't fail if they fail)
+    await Promise.allSettled(emailPromises);
+
     res.json({
       message: `Submission ${status}`,
-      submission: result.rows[0]
+      submission: {
+        id: submission.id,
+        title: submission.title,
+        status: submission.status
+      }
     });
   } catch (err) {
     console.error("Error updating submission status:", err);

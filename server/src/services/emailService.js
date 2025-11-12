@@ -138,3 +138,91 @@ export const sendExternalReviewInvite = async (to, name, link, paperInfo = {}, e
     throw new Error('Failed to send external review invitation');
   }
 };
+
+// Helper function to escape HTML
+function escapeHtml(text) {
+  if (!text) return '';
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return String(text).replace(/[&<>"']/g, m => map[m]);
+}
+
+// Build reviews section HTML (only comments, no scores or names)
+function buildReviewsSection(reviews) {
+  if (!reviews || reviews.length === 0) {
+    return '<div class="no-reviews">No reviews have been submitted yet for this paper.</div>';
+  }
+
+  // Filter reviews that have comments for author
+  const reviewsWithComments = reviews.filter(r => r.comments_for_author && r.comments_for_author.trim());
+  
+  if (reviewsWithComments.length === 0) {
+    return '<div class="no-reviews">No reviewer comments available for this paper.</div>';
+  }
+
+  let reviewsHtml = '<h2 style="margin-top: 30px; font-size: 20px; color: #111827;">Reviewer Comments</h2>';
+
+  reviewsWithComments.forEach((review) => {
+    reviewsHtml += `
+      <div class="review-section">
+        <div class="comments">
+          <div class="comments-text">${escapeHtml(review.comments_for_author)}</div>
+        </div>
+      </div>`;
+  });
+
+  return reviewsHtml;
+}
+
+// Build reminder section for approved submissions
+function buildReminderSection(status) {
+  if (status === 'approved') {
+    return `
+      <div class="reminder-box">
+        <h3>📝 Next Steps</h3>
+        <p><strong>Your submission has been approved!</strong></p>
+        <p>Please review the comments above and make any necessary changes to your paper.</p>
+        <p>Once you have made the required revisions, please submit your final copy through the submission portal.</p>
+      </div>`;
+  }
+  return '';
+}
+
+// Send submission status notification email
+export const sendSubmissionStatusEmail = async (to, authorName, status, paperInfo = {}, eventInfo = {}, reviews = []) => {
+  const traceId = `EMAIL-STATUS-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+  try {
+    const statusText = status === 'approved' ? 'Approved' : 'Rejected';
+    const statusClass = status === 'approved' ? 'status-approved' : 'status-rejected';
+    const subject = `Submission ${statusText}: ${paperInfo.title || 'Your Paper'}`;
+
+    const reviewsSection = buildReviewsSection(reviews);
+    const reminderSection = buildReminderSection(status);
+
+    const html = loadTemplate('submission-status-notification.html')
+      .replace('{{authorName}}', escapeHtml(authorName || 'Author'))
+      .replace('{{paperTitle}}', escapeHtml(paperInfo.title || 'Untitled Paper'))
+      .replace('{{eventName}}', escapeHtml(eventInfo.name || 'Unnamed Event'))
+      .replace('{{statusText}}', statusText)
+      .replace('{{statusClass}}', statusClass)
+      .replace('{{reviewsSection}}', reviewsSection)
+      .replace('{{reminderSection}}', reminderSection);
+
+    await transporter.sendMail({
+      from: `"IRC Conference Committee" <${process.env.MAIL_USER}>`,
+      to,
+      subject,
+      html,
+    });
+
+    console.log(`[${traceId}] Submission status email sent to ${to}`);
+  } catch (err) {
+    console.error(`[${traceId}] Failed to send submission status email:`, err);
+    throw new Error('Failed to send submission status email');
+  }
+};
