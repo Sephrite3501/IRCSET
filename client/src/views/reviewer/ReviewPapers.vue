@@ -150,13 +150,13 @@
 
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, reactive,onMounted } from "vue";
 import { RouterLink } from "vue-router";
 import axios from "axios";
 
 const events = ref([]);
 const assignmentsMap = ref({});
-const expandedEvents = ref(new Set());
+const expandedEvents = reactive(new Set());
 const loadingEventId = ref(null);
 
 onMounted(fetchReviewerEvents);
@@ -252,12 +252,12 @@ async function toggleEvent(eventId) {
   const safeId = toSafeId(eventId);
   if (!safeId) return;
 
-  if (expandedEvents.value.has(safeId)) {
-    expandedEvents.value.delete(safeId);
+  if (expandedEvents.has(safeId)) {
+    expandedEvents.delete(safeId);
     return;
   }
 
-  expandedEvents.value.add(safeId);
+  expandedEvents.add(safeId);
 
   if (!assignmentsMap.value[safeId]?.length) {
     loadingEventId.value = safeId;
@@ -276,6 +276,7 @@ async function toggleEvent(eventId) {
     }
   }
 }
+
 
 
 function getAssignments(eventId) {

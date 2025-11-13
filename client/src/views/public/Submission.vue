@@ -226,12 +226,18 @@ const MAX_FILE_MB = 20
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-// Normalize plain text (trim, strip control chars). Keep punctuation/symbols.
-const textClean = (s, max) =>
+// Keep this for final submit only (aggressive: removes control chars + trims)
+const textCleanHard = (s, max) =>
   String(s ?? "")
     .replace(/[\u0000-\u001F\u007F]/g, "")
     .trim()
-    .slice(0, max)
+    .slice(0, max);
+
+// Use this during typing (gentle: removes control chars, preserves spaces)
+const textCleanSoft = (s, max) =>
+  String(s ?? "")
+    .replace(/[\u0000-\u001F\u007F]/g, "")
+    .slice(0, max);
 
 const keywordClean = (s) =>
   String(s ?? "")
@@ -285,23 +291,21 @@ onMounted(async () => {
 
 // -------- input handlers (sanitize on type) --------
 function onTitleInput() {
-  title.value = textClean(title.value, MAX_TITLE_LEN)
+  title.value = textCleanSoft(title.value, MAX_TITLE_LEN);
 }
 function onAbstractInput() {
-  abstract.value = textClean(abstract.value, MAX_ABSTRACT_LEN)
+  abstract.value = textCleanSoft(abstract.value, MAX_ABSTRACT_LEN);
 }
 function onKeywordsInput() {
-  keywords.value = textClean(keywords.value, MAX_KEYWORDS_LEN)
-}
-function onIrcEmailInput() {
-  ircEmail.value = emailNorm(ircEmail.value)
+  // preserve spaces while typing; final shaping happens on submit
+  keywords.value = textCleanSoft(keywords.value, MAX_KEYWORDS_LEN);
 }
 function onAuthorInput(idx, field) {
-  const a = authors.value[idx]
-  if (!a) return
-  if (field === "name") a.name = textClean(a.name, MAX_AUTH_NAME)
-  if (field === "email") a.email = emailNorm(a.email)
-  if (field === "organization") a.organization = textClean(a.organization, MAX_AUTH_ORG)
+  const a = authors.value[idx];
+  if (!a) return;
+  if (field === "name") a.name = textCleanSoft(a.name, MAX_AUTH_NAME);
+  if (field === "email") a.email = emailNorm(a.email); // email stays strict
+  if (field === "organization") a.organization = textCleanSoft(a.organization, MAX_AUTH_ORG);
 }
 
 function addAuthor() {
@@ -366,6 +370,16 @@ function formatEventDate(start, end) {
   const e = end ? new Date(end).toLocaleDateString("en-SG", opts) : "—"
   return `${s} → ${e}`
 }
+
+title.value = textCleanHard(title.value, MAX_TITLE_LEN);
+abstract.value = textCleanHard(abstract.value, MAX_ABSTRACT_LEN);
+keywords.value = keywordClean(keywords.value); // already trims per keyword
+ircEmail.value = emailNorm(ircEmail.value);
+authors.value = authors.value.map(a => ({
+  name: textCleanHard(a.name, MAX_AUTH_NAME),
+  email: emailNorm(a.email),
+  organization: textCleanHard(a.organization, MAX_AUTH_ORG),
+}));
 
 // -------- validation before submit --------
 function validateAll() {
