@@ -30,21 +30,11 @@
         <template v-else>
           <li>
             <RouterLink
-              to="/"
+              to="/mypapers"
               class="hover:text-yellow-400 transition-colors duration-200"
-              :class="{ 'text-yellow-400': route.path === '/' }"
+              :class="{ 'text-yellow-400': route.path === '/mypapers' }"
             >
               My Papers
-            </RouterLink>
-          </li>
-
-          <li>
-            <RouterLink
-              to="/dashboard"
-              class="hover:text-yellow-400 transition-colors duration-200"
-              :class="{ 'text-yellow-400': route.path.startsWith('/dashboard') }"
-            >
-              Dashboard
             </RouterLink>
           </li>
 

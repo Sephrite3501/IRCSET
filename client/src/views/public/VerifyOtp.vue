@@ -188,7 +188,7 @@ async function onSubmit() {
     if (u.is_admin) {
       await router.replace({ path: '/admin/users' })
     } else {
-      await router.replace({ path: '/' })
+      await router.replace({ path: '/mypapers' })
     }
   } catch (err) {
     errorMessage.value = getFriendlyError(err, 'OTP verification failed.', refId)

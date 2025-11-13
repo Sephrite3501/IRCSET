@@ -5,10 +5,10 @@
       <div class="flex items-center justify-between mb-10">
         <h1 class="text-3xl font-bold text-gray-900">Admin — Events</h1>
         <RouterLink
-          to="/dashboard"
+          to="/mypapers"
           class="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
         >
-          ← Back to Dashboard
+          ← Back to My Papers
         </RouterLink>
       </div>
 
@@ -227,7 +227,7 @@ onMounted(async () => {
     const { data } = await axios.get('/auth/me')
     const user = data?.user || null
     if (!user) return router.push('/login')
-    if (!user.is_admin) return router.push('/dashboard')
+    if (!user.is_admin) return router.push('/mypapers')
   } catch {
     return router.push('/login')
   }

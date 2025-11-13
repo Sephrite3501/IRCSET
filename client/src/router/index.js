@@ -5,8 +5,6 @@ import axios from 'axios'
 import Login from '../views/public/Login.vue'
 import Register from '../views/public/Register.vue'
 import MyPapers from '../views/public/MyPapers.vue'
-// (optional) if you want a dashboard page:
-import Dashboard from '../views/public/Dashboard.vue'
 import Submission from '../views/public/Submission.vue'
 import AdminUsers from '../views/admin/AdminUsers.vue'
 import ChairApprovedPapers from '../views/chair/ChairViewAllApproved.vue'
@@ -17,10 +15,10 @@ const ChairAssignPapers = () => import('../views/chair/ChairAssignPapers.vue')
 const Reviewer = () => import('../views/reviewer/ReviewPapers.vue')
 const PaperDetails = () => import('../views/reviewer/PaperDetails.vue')
 const routes = [
-  { path: '/', component: MyPapers },
-  { path: '/login', component: Login },
-  { path: '/register', component: Register },
-  { path: '/dashboard', component: Dashboard }, // or delete if not needed
+  { path: '/', redirect: '/login' },
+  { path: '/login', component: Login, meta: { public: true } },
+  { path: '/register', component: Register, meta: { public: true } },
+  { path: '/mypapers', component: MyPapers, meta: { requiresAuth: true } },
   { path: '/submission', component: Submission },
   { path: '/verify-otp',name : 'verify-otp',  component: VerifyOtp},
   { path: '/admin', redirect: '/admin/events' },                     
@@ -63,6 +61,15 @@ router.beforeEach(async (to, from, next) => {
 
   // ✅ Allow public routes (login, register)
   if (to.meta.public) {
+    // If user is already logged in and trying to access login/register, redirect to mypapers
+    try {
+      const { data } = await axios.get('/auth/me', { withCredentials: true })
+      if (data?.user && (to.path === '/login' || to.path === '/register')) {
+        return next('/mypapers')
+      }
+    } catch (err) {
+      // Not logged in, allow access to public routes
+    }
     return next()
   }
 
