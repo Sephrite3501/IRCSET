@@ -200,6 +200,9 @@
 import axios from 'axios'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useToast } from '../../composables/useToast.js'
+
+const toast = useToast()
 
 const router = useRouter()
 
@@ -316,8 +319,9 @@ async function assignChair(eventId) {
     })
     selectedUserIdByEvent.value[eventId] = null
     await refreshChairs()
+    toast.success('Chair assigned successfully')
   } catch (e) {
-    alert(e?.response?.data?.error || 'Assignment failed')
+    toast.error(e?.response?.data?.error || 'Assignment failed')
   }
 }
 
@@ -327,8 +331,9 @@ async function removeChair(eventId, userId) {
       data: { user_id: userId, role: 'chair' }
     })
     await refreshChairs()
+    toast.success('Chair removed successfully')
   } catch (e) {
-    alert(e?.response?.data?.error || 'Remove failed')
+    toast.error(e?.response?.data?.error || 'Remove failed')
   }
 }
 </script>

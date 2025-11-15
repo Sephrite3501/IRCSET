@@ -5,6 +5,7 @@
     "tailwindcss": "^4.1.14"
   },
   "dependencies": {
-    "vue": "^3.5.22"
+    "vue": "^3.5.22",
+    "vue-toastification": "^2.0.0-rc.5"
   }
 }

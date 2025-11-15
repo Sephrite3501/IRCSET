@@ -2,13 +2,16 @@
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import axios from "axios";
+import { useToast } from "../../composables/useToast.js";
 
 const router = useRouter();
+const toast = useToast();
 const name = ref("");
 const email = ref("");
 const password = ref("");
 const loading = ref(false);
 const errorMsg = ref("");
+const successMsg = ref("");
 
 function validate() {
   const n = name.value.trim();
@@ -27,9 +30,15 @@ async function submit() {
   errorMsg.value = "";
 
   const v = validate();
-  if (v) { errorMsg.value = v; return; }
+  if (v) { 
+    errorMsg.value = v;
+    toast.error(v);
+    return;
+  }
 
   loading.value = true;
+  errorMsg.value = "";
+  successMsg.value = "";
   try {
     const api = axios.create({
       baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:3005",
@@ -48,7 +57,7 @@ async function submit() {
       });
     });
 
-     await api.post(
+    const response = await api.post(
       "/auth/register",
       {
         name: name.value.trim(),
@@ -60,16 +69,24 @@ async function submit() {
         headers: { "X-Captcha-Token": captchaToken }, // header fallback
         withCredentials: true,
       }
- );
+    );
 
-    router.push("/login");
+    const message = response.data?.message || "Registration successful! Please check your email to activate your account.";
+    successMsg.value = message;
+    toast.success(message, { timeout: 5000 });
+    
+    // Redirect to login after showing message
+    setTimeout(() => {
+      router.push("/login");
+    }, 2000);
   } catch (e) {
     const data = e?.response?.data;
-    errorMsg.value =
-      data?.message ||
+    const error = data?.message ||
       data?.error ||
       (data?.errors && Object.values(data.errors).flat().join(" ")) ||
-      "Register failed";
+      "Registration failed";
+    errorMsg.value = error;
+    toast.error(error);
   } finally {
     loading.value = false;
   }
@@ -152,6 +169,14 @@ async function submit() {
             class="w-full rounded-md border border-gray-300 text-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition"
           />
         </div>
+        
+        <!-- Success message -->
+        <div v-if="successMsg" class="p-3 bg-green-50 border border-green-200 rounded-md">
+          <p class="text-green-700 text-sm text-center">
+            {{ successMsg }}
+          </p>
+        </div>
+        
         <!-- Error message -->
         <p
           v-if="errorMsg"
