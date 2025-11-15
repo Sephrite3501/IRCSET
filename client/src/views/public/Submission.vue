@@ -1,5 +1,6 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col items-center py-12">
+  <div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 flex flex-col items-center">
+    <!-- Page Header -->
     <h1 class="text-3xl font-bold text-gray-900 mb-10">Author — Submit Paper</h1>
 
     <div class="w-11/12 max-w-6xl bg-white rounded-2xl shadow-xl p-10 grid grid-cols-1 md:grid-cols-2 gap-10">
@@ -231,13 +232,13 @@ const textCleanHard = (s, max) =>
   String(s ?? "")
     .replace(/[\u0000-\u001F\u007F]/g, "")
     .trim()
-    .slice(0, max);
+    .slice(0, max)
 
 // Use this during typing (gentle: removes control chars, preserves spaces)
 const textCleanSoft = (s, max) =>
   String(s ?? "")
     .replace(/[\u0000-\u001F\u007F]/g, "")
-    .slice(0, max);
+    .slice(0, max)
 
 const keywordClean = (s) =>
   String(s ?? "")
@@ -291,21 +292,24 @@ onMounted(async () => {
 
 // -------- input handlers (sanitize on type) --------
 function onTitleInput() {
-  title.value = textCleanSoft(title.value, MAX_TITLE_LEN);
+  title.value = textCleanSoft(title.value, MAX_TITLE_LEN)
 }
 function onAbstractInput() {
-  abstract.value = textCleanSoft(abstract.value, MAX_ABSTRACT_LEN);
+  abstract.value = textCleanSoft(abstract.value, MAX_ABSTRACT_LEN)
 }
 function onKeywordsInput() {
   // preserve spaces while typing; final shaping happens on submit
-  keywords.value = textCleanSoft(keywords.value, MAX_KEYWORDS_LEN);
+  keywords.value = textCleanSoft(keywords.value, MAX_KEYWORDS_LEN)
+}
+function onIrcEmailInput() {
+  ircEmail.value = emailNorm(ircEmail.value)
 }
 function onAuthorInput(idx, field) {
-  const a = authors.value[idx];
-  if (!a) return;
-  if (field === "name") a.name = textCleanSoft(a.name, MAX_AUTH_NAME);
-  if (field === "email") a.email = emailNorm(a.email); // email stays strict
-  if (field === "organization") a.organization = textCleanSoft(a.organization, MAX_AUTH_ORG);
+  const a = authors.value[idx]
+  if (!a) return
+  if (field === "name") a.name = textCleanSoft(a.name, MAX_AUTH_NAME)
+  if (field === "email") a.email = emailNorm(a.email) // email stays strict
+  if (field === "organization") a.organization = textCleanSoft(a.organization, MAX_AUTH_ORG)
 }
 
 function addAuthor() {
@@ -371,16 +375,6 @@ function formatEventDate(start, end) {
   return `${s} → ${e}`
 }
 
-title.value = textCleanHard(title.value, MAX_TITLE_LEN);
-abstract.value = textCleanHard(abstract.value, MAX_ABSTRACT_LEN);
-keywords.value = keywordClean(keywords.value); // already trims per keyword
-ircEmail.value = emailNorm(ircEmail.value);
-authors.value = authors.value.map(a => ({
-  name: textCleanHard(a.name, MAX_AUTH_NAME),
-  email: emailNorm(a.email),
-  organization: textCleanHard(a.organization, MAX_AUTH_ORG),
-}));
-
 // -------- validation before submit --------
 function validateAll() {
   // reset
@@ -408,7 +402,7 @@ function validateAll() {
 
   authors.value.forEach((a, i) => {
     const errs = {}
-    if (!textClean(a.name, MAX_AUTH_NAME)) errs.name = "Name is required."
+    if (!textCleanHard(a.name, MAX_AUTH_NAME)) errs.name = "Name is required."
     if (!EMAIL_RE.test(emailNorm(a.email))) errs.email = "Valid email is required."
     authorErrors.value[i] = errs
   })
@@ -432,14 +426,14 @@ async function submitPaper() {
   messageClass.value = "info"
 
   // sanitize before final validation
-  title.value = textClean(title.value, MAX_TITLE_LEN)
-  abstract.value = textClean(abstract.value, MAX_ABSTRACT_LEN)
+  title.value = textCleanHard(title.value, MAX_TITLE_LEN)
+  abstract.value = textCleanHard(abstract.value, MAX_ABSTRACT_LEN)
   keywords.value = keywordClean(keywords.value)
   ircEmail.value = emailNorm(ircEmail.value)
   authors.value = authors.value.map((a) => ({
-    name: textClean(a.name, MAX_AUTH_NAME),
+    name: textCleanHard(a.name, MAX_AUTH_NAME),
     email: emailNorm(a.email),
-    organization: textClean(a.organization, MAX_AUTH_ORG),
+    organization: textCleanHard(a.organization, MAX_AUTH_ORG),
   }))
 
   if (!validateAll()) {
@@ -477,8 +471,7 @@ async function submitPaper() {
     if (res.ok) {
       message.value = "✅ Paper submitted successfully!"
       messageClass.value = "success"
-      // optional: reset the form
-      // resetForm()
+      // optional: resetForm()
     } else {
       message.value = `❌ Submission failed: ${data?.message || res.status}`
       messageClass.value = "error"
