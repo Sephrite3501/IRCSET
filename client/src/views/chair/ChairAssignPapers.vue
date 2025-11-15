@@ -407,6 +407,9 @@
 import axios from "axios";
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
+import { useToast } from "../../composables/useToast.js";
+
+const toast = useToast();
 
 const router = useRouter();
 const loading = ref(false);
@@ -635,10 +638,12 @@ async function assignSelected(eventId, subId) {
     dueDateBySub.value[subId] = "";
     await loadAssignments(eventId, subId);
     await loadSubmissions(eventId);
+    toast.success("Reviewers assigned successfully");
   } catch (e) {
-    alert(e?.response?.data?.error || "Assign failed");
+    toast.error(e?.response?.data?.error || "Assign failed");
   } finally {
     loading.value = false;
+
   }
 }
 async function unassignOne(eventId, subId, reviewerId) {
@@ -649,8 +654,9 @@ async function unassignOne(eventId, subId, reviewerId) {
     });
     await loadAssignments(eventId, subId);
     await loadSubmissions(eventId);
+    toast.success("Reviewer unassigned successfully");
   } catch (e) {
-    alert(e?.response?.data?.error || "Unassign failed");
+    toast.error(e?.response?.data?.error || "Unassign failed");
   } finally {
     loading.value = false;
   }
@@ -662,8 +668,9 @@ async function updateStatus(eventId, subId, status) {
     const subs = submissionsByEvent.value[eventId] || [];
     const idx = subs.findIndex((s) => s.id === subId);
     if (idx !== -1) subs[idx].status = status;
+    toast.success(`Status updated to ${status}`);
   } catch (e) {
-    alert(e?.response?.data?.error || "Update failed");
+    toast.error(e?.response?.data?.error || "Update failed");
   } finally {
     loading.value = false;
   }
@@ -678,7 +685,10 @@ function eventAvgScore(eventId) {
 
 // --- External reviewer ---
 async function submitExternalReviewer() {
-  if (!extName.value) return alert("Please enter the reviewer's name.");
+  if (!extName.value) {
+    toast.warning("Please enter the reviewer's name.");
+    return;
+  }
   extSubmitting.value = true;
   try {
     const { data } = await axios.post(
@@ -688,8 +698,9 @@ async function submitExternalReviewer() {
     generatedLink.value = data.link || data.reviewer?.link || "";
     extName.value = "";
     extEmail.value = "";
+    toast.success("External reviewer created successfully");
   } catch (err) {
-    alert(err.response?.data?.error || "Failed to create external reviewer.");
+    toast.error(err.response?.data?.error || "Failed to create external reviewer.");
   } finally {
     extSubmitting.value = false;
   }

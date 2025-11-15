@@ -59,15 +59,55 @@ export async function register(req, res) {
     }
 
     const hash = await bcrypt.hash(password, Number(process.env.BCRYPT_ROUNDS || 10));
+    
+    // Create user as inactive (requires email verification)
     const ins = await appDb.query(
-      `INSERT INTO users (email, password_hash, name, is_admin, is_active)
-       VALUES ($1,$2,$3,false,true)
+      `INSERT INTO users (email, password_hash, name, is_admin, is_active, account_status)
+       VALUES ($1,$2,$3,false,false,'pending')
        RETURNING id, email, name, is_admin, is_active`,
       [email, hash, name]
     );
 
-    await logSecurityEvent({ traceId, actorUserId: ins.rows[0].id, action: 'auth.register.ok', severity: 'info', ip, userAgent });
-    return res.json({ ok: true, user: ins.rows[0] });
+    const userId = ins.rows[0].id;
+
+    // Generate activation token
+    const activationToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    // Store activation token
+    await appDb.query(
+      `INSERT INTO activation_tokens (user_id, token, expires_at)
+       VALUES ($1, $2, $3)`,
+      [userId, activationToken, expiresAt]
+    );
+
+    // Send activation email
+    try {
+      await sendActivationEmail(email, activationToken, name, 'activation');
+      await logSecurityEvent({ traceId, actorUserId: userId, action: 'auth.register.ok', severity: 'info', ip, userAgent });
+      return res.json({ 
+        ok: true, 
+        message: 'Registration successful! Please check your email to activate your account.',
+        requiresActivation: true
+      });
+    } catch (emailErr) {
+      // If email fails, still log registration but note the failure
+      await logSecurityEvent({ 
+        traceId, 
+        actorUserId: userId, 
+        action: 'auth.register.email_fail', 
+        severity: 'error', 
+        details: { message: emailErr.message },
+        ip, 
+        userAgent 
+      });
+      // Still return success - user can request resend later
+      return res.json({ 
+        ok: true, 
+        message: 'Registration successful! However, we could not send the activation email. Please contact support.',
+        requiresActivation: true
+      });
+    }
   } catch (e) {
     await logSecurityEvent({ traceId, action: 'auth.register.error', severity: 'error', details: { message: e.message }, ip, userAgent });
     return res.status(500).json({ error: 'Server error' });
@@ -316,6 +356,225 @@ export async function loginVerify(req, res) {
     });
   } catch (e) {
     await logSecurityEvent({ traceId, userEmail: email, action: 'auth.login.verify.error', severity: 'error', details: { message: e.message }, ip, userAgent });
+    return res.status(500).json({ error: 'Server error' });
+  }
+}
+
+// Forgot password: Request password reset
+export async function forgotPasswordRequest(req, res) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ error: errors.array()[0].msg });
+  }
+
+  const traceId = `FORGOT-PW-REQ-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+  const { email } = req.body;
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const userAgent = req.headers['user-agent'];
+
+  try {
+    // Find user by email
+    const { rows } = await appDb.query(
+      `SELECT id, email, name, is_active FROM users WHERE LOWER(email)=LOWER($1)`,
+      [email]
+    );
+    const user = rows[0];
+
+    // Always return success message (security: don't reveal if email exists)
+    // But only send email if user exists and is active
+    if (user && user.is_active) {
+      // Generate secure token
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+      // Invalidate any existing tokens for this user
+      await appDb.query(
+        `UPDATE password_reset_tokens SET used=true WHERE user_id=$1 AND used=false`,
+        [user.id]
+      );
+
+      // Store new token
+      await appDb.query(
+        `INSERT INTO password_reset_tokens (user_id, token, expires_at)
+         VALUES ($1, $2, $3)`,
+        [user.id, token, expiresAt]
+      );
+
+      // Send reset email
+      try {
+        await sendResetPasswordEmail(user.email, token, user.name);
+        await logSecurityEvent({
+          traceId,
+          actorUserId: user.id,
+          action: 'auth.password.reset.request',
+          severity: 'info',
+          ip,
+          userAgent
+        });
+      } catch (emailErr) {
+        await logSecurityEvent({
+          traceId,
+          actorUserId: user.id,
+          action: 'auth.password.reset.email_fail',
+          severity: 'error',
+          details: { message: emailErr.message },
+          ip,
+          userAgent
+        });
+        // Still return success to user (don't reveal email failure)
+      }
+    } else {
+      // Log attempt for non-existent or inactive account
+      await logSecurityEvent({
+        traceId,
+        userEmail: email,
+        action: 'auth.password.reset.request.invalid',
+        severity: 'warn',
+        ip,
+        userAgent
+      });
+    }
+
+    // Always return same message for security
+    return res.json({
+      success: true,
+      message: 'If an account with that email exists, a password reset link has been sent.'
+    });
+  } catch (e) {
+    await logSecurityEvent({
+      traceId,
+      userEmail: email,
+      action: 'auth.password.reset.request.error',
+      severity: 'error',
+      details: { message: e.message },
+      ip,
+      userAgent
+    });
+    return res.status(500).json({ error: 'Server error' });
+  }
+}
+
+// Reset password: Verify token and set new password
+export async function resetPassword(req, res) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ error: errors.array()[0].msg });
+  }
+
+  const traceId = `RESET-PW-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+  const { token, password } = req.body;
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const userAgent = req.headers['user-agent'];
+
+  try {
+    // Find valid token
+    const { rows } = await appDb.query(
+      `SELECT prt.user_id, prt.expires_at, prt.used, u.email, u.is_active
+       FROM password_reset_tokens prt
+       JOIN users u ON u.id = prt.user_id
+       WHERE prt.token = $1`,
+      [token]
+    );
+
+    const resetToken = rows[0];
+
+    if (!resetToken) {
+      await logSecurityEvent({
+        traceId,
+        action: 'auth.password.reset.invalid_token',
+        severity: 'warn',
+        ip,
+        userAgent
+      });
+      return res.status(400).json({ error: 'Invalid or expired reset token.' });
+    }
+
+    if (resetToken.used) {
+      await logSecurityEvent({
+        traceId,
+        actorUserId: resetToken.user_id,
+        action: 'auth.password.reset.token_used',
+        severity: 'warn',
+        ip,
+        userAgent
+      });
+      return res.status(400).json({ error: 'This reset link has already been used.' });
+    }
+
+    if (new Date(resetToken.expires_at) < new Date()) {
+      await logSecurityEvent({
+        traceId,
+        actorUserId: resetToken.user_id,
+        action: 'auth.password.reset.token_expired',
+        severity: 'warn',
+        ip,
+        userAgent
+      });
+      return res.status(400).json({ error: 'Reset token has expired. Please request a new one.' });
+    }
+
+    if (!resetToken.is_active) {
+      await logSecurityEvent({
+        traceId,
+        actorUserId: resetToken.user_id,
+        action: 'auth.password.reset.inactive_account',
+        severity: 'warn',
+        ip,
+        userAgent
+      });
+      return res.status(403).json({ error: 'Account is not active.' });
+    }
+
+    // Hash new password
+    const passwordHash = await bcrypt.hash(password, Number(process.env.BCRYPT_ROUNDS || 10));
+
+    // Update password and mark token as used
+    await appDb.query('BEGIN');
+    try {
+      await appDb.query(
+        `UPDATE users SET password_hash=$1, updated_at=NOW() WHERE id=$2`,
+        [passwordHash, resetToken.user_id]
+      );
+
+      await appDb.query(
+        `UPDATE password_reset_tokens SET used=true WHERE token=$1`,
+        [token]
+      );
+
+      // Invalidate all sessions for this user (force re-login)
+      await appDb.query(
+        `DELETE FROM session_tokens WHERE user_id=$1`,
+        [resetToken.user_id]
+      );
+
+      await appDb.query('COMMIT');
+
+      await logSecurityEvent({
+        traceId,
+        actorUserId: resetToken.user_id,
+        action: 'auth.password.reset.success',
+        severity: 'info',
+        ip,
+        userAgent
+      });
+
+      return res.json({
+        success: true,
+        message: 'Password has been reset successfully. Please log in with your new password.'
+      });
+    } catch (txErr) {
+      await appDb.query('ROLLBACK');
+      throw txErr;
+    }
+  } catch (e) {
+    await logSecurityEvent({
+      traceId,
+      action: 'auth.password.reset.error',
+      severity: 'error',
+      details: { message: e.message },
+      ip,
+      userAgent
+    });
     return res.status(500).json({ error: 'Server error' });
   }
 }

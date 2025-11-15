@@ -167,6 +167,9 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
 import axios from "axios";
+import { useToast } from "../../composables/useToast.js";
+
+const toast = useToast();
 
 const events = ref([]);
 const searchQuery = ref("");
@@ -194,7 +197,10 @@ function handleFileChange(e, submissionId) {
 // Upload final paper
 async function uploadFinalPaper(paper) {
   const file = selectedFiles.value[paper.submission_id];
-  if (!file) return alert("Please select a PDF file first.");
+  if (!file) {
+    toast.warning("Please select a PDF file first.");
+    return;
+  }
 
   const formData = new FormData();
   formData.append("pdf", file);
@@ -210,11 +216,11 @@ async function uploadFinalPaper(paper) {
       }
     );
 
-    alert("Final paper uploaded successfully!");
+    toast.success("Final paper uploaded successfully!");
     paper.status = "final_submitted";
   } catch (err) {
     console.error("Failed to upload final paper:", err);
-    alert("Upload failed. Please try again.");
+    toast.error(err?.response?.data?.error || "Upload failed. Please try again.");
   } finally {
     uploading.value = false;
   }

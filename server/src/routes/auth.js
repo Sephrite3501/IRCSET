@@ -9,6 +9,8 @@ import {
   refresh,
   logout,
   activateAccount,
+  forgotPasswordRequest,
+  resetPassword,
 } from '../controllers/authController.js';
 
 import {
@@ -34,6 +36,9 @@ r.post('/login', loginLimiter ?? authLimiter, verifyCaptcha, validateLogin, logi
 r.post('/verify-otp', authLimiter, validateOtp, loginVerify);
 
 r.get('/activate', activateAccount);
+
+r.post('/forgot-password', authLimiter, verifyCaptcha, validateResetRequest, forgotPasswordRequest);
+r.post('/reset-password', authLimiter, validateNewPassword, resetPassword);
 
 r.get('/me', requireAuth, me);
 r.post('/refresh', requireAuth, refresh); // CSRF handled globally in app.js

@@ -9,6 +9,9 @@ import Submission from '../views/public/Submission.vue'
 import AdminUsers from '../views/admin/AdminUsers.vue'
 import ChairApprovedPapers from '../views/chair/ChairViewAllApproved.vue'
 import VerifyOtp from '../views/public/VerifyOtp.vue'
+import ForgotPassword from '../views/public/ForgotPassword.vue'
+import ResetPassword from '../views/public/ResetPassword.vue'
+import ActivateAccount from '../views/public/ActivateAccount.vue'
 const AdminEvents = () => import('../views/admin/AdminEvents.vue')
 const ChairManageReviewers = () => import('../views/chair/ChairManageReviewers.vue')
 const ChairAssignPapers = () => import('../views/chair/ChairAssignPapers.vue')
@@ -18,6 +21,9 @@ const routes = [
   { path: '/', redirect: '/login' },
   { path: '/login', component: Login, meta: { public: true } },
   { path: '/register', component: Register, meta: { public: true } },
+  { path: '/forgot-password', component: ForgotPassword, meta: { public: true } },
+  { path: '/resetpassword', component: ResetPassword, meta: { public: true } },
+  { path: '/activate', component: ActivateAccount, meta: { public: true } },
   { path: '/mypapers', component: MyPapers, meta: { requiresAuth: true } },
   { path: '/submission', component: Submission },
   { path: '/verify-otp',name : 'verify-otp',  component: VerifyOtp},

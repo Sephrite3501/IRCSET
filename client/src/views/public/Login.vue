@@ -2,8 +2,10 @@
 import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import axios from "axios";
+import { useToast } from "../../composables/useToast.js";
 
 const router = useRouter();
+const toast = useToast();
 
 const rawEmail = ref("");
 const rawPassword = ref("");
@@ -93,6 +95,7 @@ async function submit() {
   const v = validate();
   if (v) {
     errorMsg.value = v;
+    toast.error(v);
     return;
   }
 
@@ -110,24 +113,26 @@ async function submit() {
     await api.post(
       "/auth/login",
       {
-        email: email.value,            // sanitized, lowercased
-        password: password.value,      // trimmed, control chars removed
+        email: getEmail(),            // sanitized, lowercased
+        password: getPassword(),      // trimmed, control chars removed
         captchaToken,                  // body
       },
       { headers: { "X-Captcha-Token": captchaToken } } // header too
     );
 
     // Carry email to OTP page (also in query string)
-    sessionStorage.setItem("otp_email", email.value);
-    router.push({ name: "verify-otp", query: { email: email.value } });
+    sessionStorage.setItem("otp_email", getEmail());
+    toast.success("OTP sent to your email");
+    router.push({ name: "verify-otp", query: { email: getEmail() } });
   } catch (err) {
     const data = err?.response?.data;
-    errorMsg.value =
-      data?.message ||
+    const error = data?.message ||
       data?.error ||
       (data?.errors && Object.values(data.errors).flat().join(" ")) ||
       err?.message ||
       "Login failed";
+    errorMsg.value = error;
+    toast.error(error);
   } finally {
     loading.value = false;
   }
@@ -157,7 +162,7 @@ async function submit() {
           <input
               id="email"
               v-model="rawEmail"
-              @input="rawEmail = sanitizeEmail($event.target.value)"
+              @input="rawEmail = sanitizeEmailLoose($event.target.value)"
               type="email"
               inputmode="email"
               autocomplete="email"
@@ -169,13 +174,21 @@ async function submit() {
 
         <!-- Password -->
         <div>
-          <label for="password" class="block text-sm font-medium text-gray-700 mb-1">
-            Password
-          </label>
+          <div class="flex justify-between items-center mb-1">
+            <label for="password" class="block text-sm font-medium text-gray-700">
+              Password
+            </label>
+            <RouterLink
+              to="/forgot-password"
+              class="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+            >
+              Forgot?
+            </RouterLink>
+          </div>
           <input
             id="password"
             v-model="rawPassword"
-            @input="rawPassword = sanitizePassword($event.target.value)"
+            @input="rawPassword = sanitizePasswordLoose($event.target.value)"
             type="password"
             autocomplete="current-password"
             required

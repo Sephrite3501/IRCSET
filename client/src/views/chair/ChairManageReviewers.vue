@@ -117,6 +117,9 @@
 import axios from 'axios'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useToast } from '../../composables/useToast.js'
+
+const toast = useToast()
 
 const router = useRouter()
 const events = ref([])
@@ -166,8 +169,9 @@ async function addReviewer(eventId, userId) {
     await loadReviewers(eventId)
     userResultsByEvent.value[eventId] = []
     searchQByEvent.value[eventId] = ''
+    toast.success('Reviewer added successfully')
   } catch (e) {
-    alert(e?.response?.data?.error || 'Failed to add')
+    toast.error(e?.response?.data?.error || 'Failed to add')
   }
 }
 
@@ -175,8 +179,9 @@ async function removeReviewer(eventId, userId) {
   try {
     await axios.delete(`/chair/${eventId}/reviewers`, { data: { user_id: userId, role: 'reviewer' } })
     await loadReviewers(eventId)
+    toast.success('Reviewer removed successfully')
   } catch (e) {
-    alert(e?.response?.data?.error || 'Failed to remove')
+    toast.error(e?.response?.data?.error || 'Failed to remove')
   }
 }
 
