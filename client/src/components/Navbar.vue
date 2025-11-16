@@ -28,25 +28,28 @@
 
         <!-- Show everything else only after login -->
         <template v-else>
-          <li>
-            <RouterLink
-              to="/mypapers"
-              class="hover:text-yellow-400 transition-colors duration-200"
-              :class="{ 'text-yellow-400': route.path === '/mypapers' }"
-            >
-              My Papers
-            </RouterLink>
-          </li>
+          <!-- Only show My Papers and Submit for non-admin users -->
+          <template v-if="!user?.is_admin">
+            <li>
+              <RouterLink
+                to="/mypapers"
+                class="hover:text-yellow-400 transition-colors duration-200"
+                :class="{ 'text-yellow-400': route.path === '/mypapers' }"
+              >
+                My Papers
+              </RouterLink>
+            </li>
 
-          <li>
-            <RouterLink
-              to="/submission"
-              class="hover:text-yellow-400 transition-colors duration-200"
-              :class="{ 'text-yellow-400': route.path.startsWith('/submission') }"
-            >
-              Submit
-            </RouterLink>
-          </li>
+            <li>
+              <RouterLink
+                to="/submission"
+                class="hover:text-yellow-400 transition-colors duration-200"
+                :class="{ 'text-yellow-400': route.path.startsWith('/submission') }"
+              >
+                Submit
+              </RouterLink>
+            </li>
+          </template>
 
           <!-- Admin Dropdown -->
           <li v-if="user?.is_admin" class="relative group">
@@ -71,9 +74,8 @@
                      pointer-events-none group-hover:pointer-events-auto"
             >
               <li><RouterLink to="/admin/users" class="block px-4 py-2 text-sm hover:bg-gray-800 hover:text-yellow-400 transition">Manage Users</RouterLink></li>
-              <li><RouterLink to="/admin/submissions" class="block px-4 py-2 text-sm hover:bg-gray-800 hover:text-yellow-400 transition">Manage Submissions</RouterLink></li>
-              <li><RouterLink to="/admin/reviews" class="block px-4 py-2 text-sm hover:bg-gray-800 hover:text-yellow-400 transition">Manage Reviews</RouterLink></li>
               <li><RouterLink to="/admin/events" class="block px-4 py-2 text-sm hover:bg-gray-800 hover:text-yellow-400 transition">Manage Events</RouterLink></li>
+              <li><RouterLink to="/admin/logs" class="block px-4 py-2 text-sm hover:bg-gray-800 hover:text-yellow-400 transition">View Logs</RouterLink></li>
             </ul>
           </li>
 

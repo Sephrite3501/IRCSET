@@ -74,4 +74,11 @@ r.put('/users/:userId/role',
   requireAuth, requireAdmin, validateParamId('userId'),
   asyncHandler(Admin.updateUserRole)
 );
+
+// List audit logs
+r.get('/logs',
+  requireAuth, requireAdmin,
+  asyncHandler(Admin.listLogs)
+);
+
 export default r;

@@ -13,6 +13,7 @@ import ForgotPassword from '../views/public/ForgotPassword.vue'
 import ResetPassword from '../views/public/ResetPassword.vue'
 import ActivateAccount from '../views/public/ActivateAccount.vue'
 const AdminEvents = () => import('../views/admin/AdminEvents.vue')
+const AdminLogs = () => import('../views/admin/AdminLogs.vue')
 const ChairManageReviewers = () => import('../views/chair/ChairManageReviewers.vue')
 const ChairAssignPapers = () => import('../views/chair/ChairAssignPapers.vue')
 const Reviewer = () => import('../views/reviewer/ReviewPapers.vue')
@@ -29,7 +30,8 @@ const routes = [
   { path: '/verify-otp',name : 'verify-otp',  component: VerifyOtp},
   { path: '/admin', redirect: '/admin/events' },                     
   { path: '/admin/events', component: AdminEvents, meta: { requiresAdmin: true } }, 
-  { path: '/admin/users', component: AdminUsers, meta: { requiresAdmin: true } }, 
+  { path: '/admin/users', component: AdminUsers, meta: { requiresAdmin: true } },
+  { path: '/admin/logs', component: AdminLogs, meta: { requiresAdmin: true } }, 
   { path: '/chair/reviewers', component: ChairManageReviewers, meta: { requiresAuth: true } },
   { path: '/chair/assign', component: ChairAssignPapers, meta: { requiresAuth: true } },
   { path: '/chair/approved-papers', component: ChairApprovedPapers, meta: { requiresAuth: true } },

@@ -338,3 +338,107 @@ export async function updateUserRole(req, res) {
   if (!upd.rowCount) throw new ApiError(404, 'User not found');
   res.json({ ok: true, user: upd.rows[0] });
 }
+
+// Admin: list audit logs
+export async function listLogs(req, res) {
+  const traceId = `ADM-LOG-${Math.random().toString(36).slice(2, 9).toUpperCase()}`;
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const userAgent = req.headers['user-agent'];
+
+  // Parse filters
+  const page = Math.max(1, parseInt(req.query?.page || '1', 10) || 1);
+  const limit = Math.min(500, Math.max(1, parseInt(req.query?.limit || '100', 10) || 100));
+  const offset = (page - 1) * limit;
+
+  const severity = cleanText(req.query?.severity, { max: 10 })?.toLowerCase();
+  const action = cleanText(req.query?.action, { max: 100 });
+  const actorUserId = req.query?.actor_user_id ? Number(req.query.actor_user_id) : null;
+  const entityType = cleanText(req.query?.entity_type, { max: 50 });
+  const entityId = cleanText(req.query?.entity_id, { max: 50 });
+
+  // Build WHERE clause
+  const where = [];
+  const params = [];
+
+  if (severity && ['info', 'warn', 'error'].includes(severity)) {
+    params.push(severity);
+    where.push(`al.severity = $${params.length}`);
+  }
+
+  if (action) {
+    params.push(`%${action}%`);
+    where.push(`al.action ILIKE $${params.length}`);
+  }
+
+  if (actorUserId) {
+    params.push(actorUserId);
+    where.push(`al.actor_user_id = $${params.length}`);
+  }
+
+  if (entityType) {
+    params.push(entityType);
+    where.push(`al.entity_type = $${params.length}`);
+  }
+
+  if (entityId) {
+    params.push(entityId);
+    where.push(`al.entity_id = $${params.length}`);
+  }
+
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+  // Get total count
+  const countRes = await appDb.query(
+    `SELECT COUNT(*)::int AS n FROM audit_logs al ${whereSql}`,
+    params
+  );
+  const total = countRes.rows[0]?.n ?? 0;
+
+  // Get paginated logs with user info
+  params.push(limit, offset);
+  const limIdx = params.length - 1;
+  const logsRes = await appDb.query(
+    `SELECT 
+      al.id,
+      al.trace_id,
+      al.actor_user_id,
+      u.email AS actor_email,
+      u.name AS actor_name,
+      al.action,
+      al.entity_type,
+      al.entity_id,
+      al.severity,
+      al.details,
+      al.ip,
+      al.user_agent,
+      al.created_at
+    FROM audit_logs al
+    LEFT JOIN users u ON u.id = al.actor_user_id
+    ${whereSql}
+    ORDER BY al.created_at DESC
+    LIMIT $${limIdx} OFFSET $${limIdx + 1}`,
+    params
+  );
+
+  await logSecurityEvent({
+    traceId,
+    actorUserId: req.user.uid,
+    action: 'admin.list_logs',
+    severity: 'info',
+    details: {
+      total_returned: logsRes.rows.length,
+      page,
+      limit,
+      filters: { severity, action: !!action, actorUserId, entityType, entityId }
+    },
+    ip,
+    userAgent
+  });
+
+  res.json({
+    items: logsRes.rows,
+    page,
+    limit,
+    total
+  });
+}
