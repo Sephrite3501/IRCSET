@@ -692,4 +692,72 @@ export async function createExternalReviewer(req, res) {
   }
 }
 
+export async function deleteExternalReview(req, res) {
+  const traceId = `CHAIR-EXTDEL-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
+  const eventId = Number(req.params.eventId || 0);
+  const submissionId = Number(req.params.submissionId || 0);
+  const externalReviewerId = Number(req.params.externalReviewerId || 0);
+
+  if (!eventId || !submissionId || !externalReviewerId) {
+    return res.status(400).json({ error: "Invalid parameters" });
+  }
+
+  const existing = await appDb.query(
+    `SELECT a.id, er.name, er.email
+     FROM assignments a
+     JOIN external_reviewers er ON er.id = a.external_reviewer_id
+     WHERE a.event_id = $1 AND a.submission_id = $2 AND a.external_reviewer_id = $3`,
+    [eventId, submissionId, externalReviewerId]
+  );
+
+  if (!existing.rowCount) {
+    return res.status(404).json({ error: "External review not found for this submission" });
+  }
+
+  try {
+    await appDb.query("BEGIN");
+
+    await appDb.query(
+      `DELETE FROM reviews
+       WHERE submission_id = $1 AND external_reviewer_id = $2`,
+      [submissionId, externalReviewerId]
+    );
+
+    await appDb.query(
+      `DELETE FROM assignments
+       WHERE event_id = $1 AND submission_id = $2 AND external_reviewer_id = $3`,
+      [eventId, submissionId, externalReviewerId]
+    );
+
+    await appDb.query(
+      `DELETE FROM external_reviewers
+       WHERE id = $1`,
+      [externalReviewerId]
+    );
+
+    await appDb.query("COMMIT");
+  } catch (err) {
+    await appDb.query("ROLLBACK");
+    console.error("Failed to delete external review:", err);
+    return res.status(500).json({ error: "Failed to delete external review" });
+  }
+
+  await logSecurityEvent({
+    traceId,
+    actorUserId: req.user?.uid,
+    action: "chair.external_review.delete",
+    severity: "warn",
+    entity_type: "submission",
+    entity_id: String(submissionId),
+    details: {
+      event_id: eventId,
+      external_reviewer_id: externalReviewerId,
+      reviewer_name: existing.rows[0]?.name || null,
+      reviewer_email: existing.rows[0]?.email || null
+    }
+  });
+
+  return res.json({ ok: true });
+}
+
 

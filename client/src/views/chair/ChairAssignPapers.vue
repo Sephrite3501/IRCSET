@@ -264,13 +264,24 @@
                             :key="r.external_reviewer_id"
                             class="py-4"
                           >
-                            <p class="font-medium text-gray-900">
-                              {{ r.reviewer_name }}
-                              <span class="text-xs text-gray-500">(External)</span>
-                            </p>
-                            <p class="text-xs text-gray-500 mb-2">
-                              Submitted at: {{ fmt(r.submitted_at) || '—' }}
-                            </p>
+                            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                              <div>
+                                <p class="font-medium text-gray-900">
+                                  {{ r.reviewer_name }}
+                                  <span class="text-xs text-gray-500">(External)</span>
+                                </p>
+                                <p class="text-xs text-gray-500">
+                                  Submitted at: {{ fmt(r.submitted_at) || '—' }}
+                                </p>
+                              </div>
+                              <button
+                                class="text-xs text-red-500 hover:text-red-600 font-medium"
+                                :disabled="loading"
+                                @click="deleteExternalReview(ev.id, sub.id, r.external_reviewer_id)"
+                              >
+                                Delete Review
+                              </button>
+                            </div>
 
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                               <div
@@ -287,12 +298,12 @@
                               <strong>Overall:</strong> {{ r.score_overall ?? '—' }}
                             </div>
 
-                            <div class="text-sm text-gray-800 whitespace-pre-line bg-gray-50 border rounded-lg p-3 mb-3">
+                            <div class="text-sm text-gray-800 whitespace-pre-line bg-gray-50 border rounded-lg p-3 mb-3 overflow-y-auto">
                               <strong>Comments for Author:</strong><br />
                               {{ r.comments_for_author || '—' }}
                             </div>
 
-                            <div class="text-sm text-gray-800 whitespace-pre-line bg-gray-50 border rounded-lg p-3">
+                            <div class="text-sm text-gray-800 whitespace-pre-line bg-gray-50 border rounded-lg p-3 overflow-y-auto">
                               <strong>Comments for Committee:</strong><br />
                               {{ r.comments_committee || '—' }}
                             </div>
@@ -713,6 +724,25 @@ async function logout() {
 const expandedExternalReviews = ref({});
 function toggleExternalReviews(subId) {
   expandedExternalReviews.value[subId] = !expandedExternalReviews.value[subId];
+}
+
+async function deleteExternalReview(eventId, subId, externalReviewerId) {
+  if (!externalReviewerId) return;
+  const confirmed = globalThis.confirm("Are you sure you want to delete this external review?");
+  if (!confirmed) return;
+  loading.value = true;
+  try {
+    await axios.delete(
+      `/chair/${eventId}/submissions/${subId}/external-reviewers/${externalReviewerId}`
+    );
+    await loadAllReviews(eventId, subId);
+    await loadExternalReviews(eventId, subId);
+    toast.success("External review deleted");
+  } catch (e) {
+    toast.error(e?.response?.data?.error || "Failed to delete review");
+  } finally {
+    loading.value = false;
+  }
 }
 </script>
 

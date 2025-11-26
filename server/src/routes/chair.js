@@ -19,6 +19,7 @@ import {
   getAllReviewsForSubmission,
   updateSubmissionStatus,
   getApprovedSubmissions,
+  deleteExternalReview
 } from '../controllers/chairController.js';
 
 import {
@@ -131,5 +132,15 @@ r.put(
 
 r.get("/approved-submissions", requireAuth, getApprovedSubmissions);
 r.get('/:eventId/submissions/:subId/external-reviews', getExternalReviewsForSubmission);
+
+r.delete(
+  '/:eventId/submissions/:submissionId/external-reviewers/:externalReviewerId',
+  requireAuth,
+  requireEventRole('chair'),
+  writeLimiter,
+  validateParamId('submissionId'),
+  validateParamId('externalReviewerId'),
+  deleteExternalReview
+);
 
 export default r;
